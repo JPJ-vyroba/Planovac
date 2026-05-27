@@ -249,14 +249,16 @@ input[type=date],input[type=time]{color-scheme:dark}
     </div>
   </div>
   <div class="nav-section">Menu</div>
-  <div class="nav-item active" onclick="nav('plan',this)"><span class="nav-icon">◈</span> Plánovanie</div>
+  <div class="nav-item active" id="nav-plan" onclick="nav('plan',this)"><span class="nav-icon">◈</span> Plánovanie</div>
   <div class="nav-item" onclick="nav('gantt',this)"><span class="nav-icon">▤</span> Gantt diagram</div>
-  <div class="nav-item" onclick="nav('cinnosti',this)"><span class="nav-icon">≡</span> Činnosti</div>
-  <div class="nav-item" onclick="nav('workers',this)"><span class="nav-icon">◉</span> Pracovníci</div>
+  <div class="nav-item" id="nav-cinnosti" onclick="nav('cinnosti',this)"><span class="nav-icon">≡</span> Činnosti</div>
+  <div class="nav-item" id="nav-workers" onclick="nav('workers',this)"><span class="nav-icon">◉</span> Pracovníci</div>
   <div class="nav-section" style="margin-top:0.5rem">Dáta</div>
-  <div class="nav-item" onclick="nav('import',this)"><span class="nav-icon">⇑</span> Import XLSX</div>
+  <div class="nav-item" id="nav-import" onclick="nav('import',this)"><span class="nav-icon">⇑</span> Import XLSX</div>
+  <div class="nav-item" id="nav-overview" onclick="nav('overview',this)" style="display:none"><span class="nav-icon">📊</span> Prehľad</div>
+  <div class="nav-item" id="nav-remaining" onclick="nav('remaining',this)" style="display:none"><span class="nav-icon">⏳</span> Zostávajúce</div>
   <div class="nav-item" id="nav-masters" onclick="nav('masters',this)" style="display:none"><span class="nav-icon">👥</span> Majstri</div>
-  <div class="nav-item" onclick="exportAll()"><span class="nav-icon">⇓</span> Export XLSX</div>
+  <div class="nav-item" id="nav-export" onclick="exportAll()"><span class="nav-icon">⇓</span> Export XLSX</div>
   <div class="sidebar-bottom">
     <div class="sidebar-stat">Pracovníci: <strong id="sb-w">0</strong></div>
     <div class="sidebar-stat">Činnosti: <strong id="sb-c">0</strong></div>
@@ -518,6 +520,17 @@ input[type=date],input[type=time]{color-scheme:dark}
       </div>
     </div>
 
+
+    <!-- OVERVIEW PANEL (Manager) -->
+    <div class="tab-panel" id="panel-overview">
+      <div id="manager-overview-content"></div>
+    </div>
+
+    <!-- REMAINING PANEL (Manager) -->
+    <div class="tab-panel" id="panel-remaining">
+      <div id="manager-remaining-content"></div>
+    </div>
+
     <!-- MASTERS PANEL (Admin only) -->
     <div class="tab-panel" id="panel-masters">
       <div class="card">
@@ -525,6 +538,12 @@ input[type=date],input[type=time]{color-scheme:dark}
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:12px;align-items:end">
           <div class="field"><label>Meno</label><input type="text" id="master-name" placeholder="Ján Kováč" style="width:100%"></div>
           <div class="field"><label>PIN</label><input type="text" id="master-pin" placeholder="MS2320" style="width:100%;font-family:var(--font-mono)"></div>
+          <div class="field"><label>Rola</label>
+            <select id="master-role" style="width:100%;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+              <option value="master">Majster</option>
+              <option value="manager">Manažér</option>
+            </select>
+          </div>
           <div class="field"><label>Profesie (čiarkou)</label><input type="text" id="master-profesie" placeholder="2320, 2324" style="width:100%"></div>
           <button class="btn btn-accent btn-sm" onclick="addMaster()" style="height:36px">+ Pridať</button>
         </div>
@@ -542,7 +561,7 @@ input[type=date],input[type=time]{color-scheme:dark}
 // ═══════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════
-const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'Majstri'};
+const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'Majstri',overview:'Prehľad',remaining:'Zostávajúce činnosti'};
 let jobFilter='all';
 let _assignParams=null;
 let S={
@@ -2019,7 +2038,7 @@ function renderBasket(){
 function renderAll(){
   if(!currentUser)return;
   renderStats();renderJobs();renderCinnosti();renderWorkers();renderCinSelect();renderVpManager();renderVpFilterPills();
-  renderMasters();
+  renderMasters();renderOverview();renderRemaining();
   // Show/hide admin nav
   const navMasters=document.getElementById('nav-masters');
   if(navMasters)navMasters.style.display=(currentUser&&currentUser.role==='admin')?'flex':'none';
@@ -2036,11 +2055,14 @@ function renderAll(){
 // ═══════════════════════════════════════════════════════════════════
 function nav(tab,el){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-  document.getElementById('panel-'+tab).classList.add('active');
+  const panel=document.getElementById('panel-'+tab);
+  if(panel)panel.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
   document.getElementById('page-title').textContent=PAGES[tab]||tab;
   if(tab=='gantt')renderGantt();
+  if(tab=='overview')renderOverview();
+  if(tab=='remaining')renderRemaining();
 }
 function addWorker(){
   const name=document.getElementById('nw-name').value.trim();
@@ -2969,7 +2991,7 @@ async function doLogin(){
     const masters=snap.exists?(snap.data().masters||[]):[];
     const master=masters.find(m=>m.pin.toUpperCase()===pin);
     if(master){
-      currentUser={pin,role:'master',name:master.name,profesie:master.profesie||[]};
+      currentUser={pin,role:master.role||'master',name:master.name,profesie:master.profesie||[]};
       await startApp();
     }else{
       errEl.textContent='Nesprávny PIN.';
@@ -2990,6 +3012,7 @@ async function startApp(){
   document.getElementById('login-page').style.display='none';
   startRealtimeSync();
   renderUserBadge();
+  applyRoleUI();
   renderAll();
 }
 
@@ -3038,27 +3061,107 @@ function renderMasters(){
 function addMaster(){
   const name=document.getElementById('master-name').value.trim();
   const pin=document.getElementById('master-pin').value.trim().toUpperCase();
+  const role=document.getElementById('master-role')?.value||'master';
   const profesie=document.getElementById('master-profesie').value.trim().split(',').map(p=>p.trim()).filter(Boolean);
   if(!name||!pin){alert('Zadaj meno a PIN.');return;}
   if(!S.masters)S.masters=[];
-  if(S.masters.find(m=>m.pin===pin)){alert('PIN už existuje.');return;}
-  S.masters.push({name,pin,profesie});
+  if(S.masters.find(m=>m.pin===pin)){alert('PIN uz existuje.');return;}
+  S.masters.push({name,pin,role,profesie});
   save();renderMasters();
   document.getElementById('master-name').value='';
   document.getElementById('master-pin').value='';
   document.getElementById('master-profesie').value='';
 }
 
-function deleteMaster(idx){if(!confirm('Odstrániť?'))return;S.masters.splice(idx,1);save();renderMasters();}
+function deleteMaster(idx){if(!confirm('Odstranit?'))return;S.masters.splice(idx,1);save();renderMasters();}
 
 function editMaster(idx){
   const m=S.masters[idx];
   const name=prompt('Meno:',m.name);if(name===null)return;
   const pin=prompt('PIN:',m.pin);if(pin===null)return;
-  const prof=prompt('Profesie (čiarkou):',m.profesie.join(', '));
-  S.masters[idx]={name:name.trim(),pin:pin.trim().toUpperCase(),profesie:(prof||'').split(',').map(p=>p.trim()).filter(Boolean)};
+  const role=prompt('Rola (master/manager):',m.role||'master');
+  const prof=prompt('Profesie (ciarkou):',m.profesie.join(', '));
+  S.masters[idx]={name:name.trim(),pin:pin.trim().toUpperCase(),role:(role||'master').trim(),profesie:(prof||'').split(',').map(p=>p.trim()).filter(Boolean)};
   save();renderMasters();
 }
+
+// -- ROLE-BASED UI -------------------------------------------------
+function isManager(){return currentUser&&currentUser.role==='manager';}
+function isAdmin(){return currentUser&&currentUser.role==='admin';}
+
+function applyRoleUI(){
+  const manager=isManager();
+  const admin=isAdmin();
+  const show=(id,visible)=>{const el=document.getElementById(id);if(el)el.style.display=visible?'flex':'none';};
+  show('nav-plan',!manager);
+  show('nav-cinnosti',!manager);
+  show('nav-workers',!manager);
+  show('nav-import',admin);
+  show('nav-export',true);
+  show('nav-masters',admin);
+  show('nav-overview',manager);
+  show('nav-remaining',manager);
+  if(manager){
+    nav('overview',document.getElementById('nav-overview'));
+  }
+}
+
+// -- OVERVIEW PANEL ------------------------------------------------
+function renderOverview(){
+  const el=document.getElementById('manager-overview-content');
+  if(!el)return;
+  const today=todayStr();
+  const active=S.jobs.filter(j=>!j.done);
+  const done=S.jobs.filter(j=>j.done);
+  const overdue=active.filter(j=>j.endDate&&j.endDate<today);
+  const onLeave=S.workers.filter(w=>(w.absencie||[]).some(a=>a.od<=today&&a.do>=today));
+  const vpStats={};
+  S.jobs.forEach(j=>{
+    if(!j.vp)return;
+    if(!vpStats[j.vp])vpStats[j.vp]={total:0,done:0,nh:0,doneNh:0};
+    vpStats[j.vp].total++;vpStats[j.vp].nh+=j.nh||0;
+    if(j.done){vpStats[j.vp].done++;vpStats[j.vp].doneNh+=j.nh||0;}
+  });
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--acc)">${active.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">AKTÍVNE ÚLOHY</div></div>
+      <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--green)">${done.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">SPLNENÉ</div></div>
+      <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--red)">${overdue.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">PO TERMÍNE</div></div>
+      <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--blue)">${onLeave.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">NA DOVOLENKE/PN</div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Postup podla vyrobneho prikazu</div>
+      ${Object.entries(vpStats).sort().map(([vp,st])=>{
+        const pct=st.total?Math.round(st.done/st.total*100):0;
+        return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-weight:600;color:var(--text)">'+vp+'</span><span style="font-size:11px;color:var(--text3)">'+st.done+'/'+st.total+' uloh · '+st.doneNh.toFixed(0)+'/'+st.nh.toFixed(0)+' Nh</span></div><div style="background:var(--bg3);border-radius:4px;height:8px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:var(--green);border-radius:4px"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px">'+pct+'% hotove</div></div>';
+      }).join('')}
+    </div>
+    ${overdue.length?'<div class="card"><div class="card-title" style="color:var(--red)">⏰ Ulohy po termine ('+overdue.length+')</div>'+overdue.map(j=>'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px"><div><span style="font-weight:600;color:var(--text)">'+j.cinName+'</span><span style="color:var(--text3);margin-left:8px">'+(j.vp||'')+' · '+j.prof+'</span></div><div style="color:var(--red)">do '+fmtDate(j.endDate)+' · '+(j.workerNames.join(', ')||'bez pracovnika')+'</div></div>').join('')+'</div>':''}
+    ${onLeave.length?'<div class="card" style="margin-top:16px"><div class="card-title">🏖 Nepritomni pracovnici</div>'+onLeave.map(w=>{const abs=(w.absencie||[]).find(a=>a.od<=today&&a.do>=today);return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600;color:var(--text)">'+w.name+'</span><span style="color:var(--text3)">'+(abs?abs.typ+' do '+fmtDate(abs.do):'')+'</span></div>';}).join('')+'</div>':''}`;
+}
+
+// -- REMAINING PANEL -----------------------------------------------
+function renderRemaining(){
+  const el=document.getElementById('manager-remaining-content');
+  if(!el)return;
+  const plannedCids=new Set(S.jobs.map(j=>j.cid).filter(Boolean));
+  const remaining=S.cinnosti.filter(c=>!plannedCids.has(c.cid)&&!plannedCids.has(String(c.id)));
+  const byVp={};
+  remaining.forEach(c=>{
+    const vp=c.vp||'—';if(!byVp[vp])byVp[vp]={};
+    const z=c.zostava||'—';if(!byVp[vp][z])byVp[vp][z]=[];
+    byVp[vp][z].push(c);
+  });
+  if(!remaining.length){el.innerHTML='<div class="card"><div style="color:var(--green);font-size:14px;text-align:center;padding:20px">✅ Vsetky cinnosti su naplanovane!</div></div>';return;}
+  el.innerHTML='<div class="card" style="margin-bottom:12px"><div style="font-size:13px;color:var(--text2)">Celkom nenapanovanych: <strong style="color:var(--acc)">'+remaining.length+'</strong> cinnosti · <strong style="color:var(--acc)">'+remaining.reduce((s,c)=>s+(c.nh||0),0).toFixed(1)+' Nh</strong></div></div>'+
+    Object.entries(byVp).sort().map(([vp,zostavy])=>
+      '<div class="card" style="margin-bottom:12px"><div class="card-title">'+vp+'</div>'+
+      Object.entries(zostavy).sort().map(([z,cins])=>
+        '<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px">'+z+'</div>'+
+        cins.map(c=>'<div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--bg3);border-radius:5px;margin-bottom:3px;font-size:12px"><div><span style="font-family:var(--font-mono);color:var(--text3);font-size:10px;margin-right:6px">'+(c.cid||c.id)+'</span><span style="color:var(--text)">'+c.name+'</span></div><div style="display:flex;gap:12px;color:var(--text3);font-size:11px"><span>'+c.prof+'</span><span style="color:var(--acc);font-weight:600">'+c.nh+' Nh</span></div></div>').join('')+
+        '</div>').join('')+'</div>').join('');
+}
+
 
 document.addEventListener('DOMContentLoaded',()=>{
   // Init Firebase

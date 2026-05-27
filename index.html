@@ -516,6 +516,20 @@ input[type=date],input[type=time]{color-scheme:dark}
         <input type="file" id="file-wkr" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileWkr(this.files[0])">
         <div id="import-wkr-msg"></div><div id="import-wkr-preview"></div>
       </div>
+    <!-- MASTERS PANEL (Admin only) -->
+    <div class="tab-panel" id="panel-masters">
+      <div class="card">
+        <div class="card-title">Správa majstrov</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:12px;align-items:end">
+          <div class="field"><label>Meno</label><input type="text" id="master-name" placeholder="Ján Kováč" style="width:100%"></div>
+          <div class="field"><label>PIN</label><input type="text" id="master-pin" placeholder="MS2320" style="width:100%;font-family:var(--font-mono)"></div>
+          <div class="field"><label>Profesie (čiarkou)</label><input type="text" id="master-profesie" placeholder="2320, 2324" style="width:100%"></div>
+          <button class="btn btn-accent btn-sm" onclick="addMaster()" style="height:36px">+ Pridať</button>
+        </div>
+        <div id="masters-list"></div>
+      </div>
+    </div>
+
     </div>
 
   </div>
@@ -3460,23 +3474,7 @@ document.getElementById('modal-add').addEventListener('click',function(e){if(e.t
     </div>
   </div>
 
-    <!-- MASTERS PANEL (Admin only) -->
-    <div class="tab-panel" id="panel-masters">
-      <div class="card">
-        <div class="card-title">Správa majstrov</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:12px;align-items:end">
-          <div class="field"><label>Meno</label><input type="text" id="master-name" placeholder="Ján Kováč" style="width:100%"></div>
-          <div class="field"><label>PIN</label><input type="text" id="master-pin" placeholder="MS2320" style="width:100%;font-family:var(--font-mono)"></div>
-          <div class="field"><label>Profesie (čiarkou)</label><input type="text" id="master-profesie" placeholder="2320, 2324" style="width:100%"></div>
-          <button class="btn btn-accent btn-sm" onclick="addMaster()" style="height:36px">+ Pridať</button>
-        </div>
-        <div id="masters-list"></div>
-      </div>
-    </div>
 
-</div>
-
-<!-- MODAL: Add worker -->
 <div id="modal-add" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:490px;max-width:95vw">
     <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px" id="modal-add-title">Pridať pracovníka k úlohe</div>

@@ -217,9 +217,6 @@ input[type=date],input[type=time]{color-scheme:dark}
 .user-chip{display:flex;align-items:center;gap:6px;background:#1a1a27;border:1px solid #2a2a3a;border-radius:20px;padding:3px 10px 3px 6px;font-size:11px;color:#9898b0}
 .user-av{width:20px;height:20px;border-radius:50%;background:rgba(240,165,0,0.2);color:#f0a500;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
 </style>
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -641,11 +638,17 @@ function saveToFirestore(){
 async function loadFromFirestore(){
   if(!db)return false;
   try{
+    // Force fresh load from server, bypass cache
+    const getOpts={source:'server'};
     const [metaSnap,workersSnap,mastersSnap]=await Promise.all([
+      db.collection('workplan').doc('meta').get(getOpts),
+      db.collection('workplan').doc('workers').get(getOpts),
+      db.collection('workplan').doc('masters').get(getOpts)
+    ]).catch(()=>Promise.all([
       db.collection('workplan').doc('meta').get(),
       db.collection('workplan').doc('workers').get(),
       db.collection('workplan').doc('masters').get()
-    ]);
+    ]));
     if(metaSnap.exists){
       const m=metaSnap.data();
       S.cinnosti=m.cinnosti||[];
@@ -677,32 +680,41 @@ async function loadFromFirestore(){
 }
 
 // Real-time listener — aktualizuje dáta keď niekto iný zmení
+let _unsubscribers=[];
+
+function stopRealtimeSync(){
+  _unsubscribers.forEach(fn=>fn());
+  _unsubscribers=[];
+}
+
 function startRealtimeSync(){
   if(!db)return;
+  stopRealtimeSync(); // Zastav predchádzajúce listenery
   ['meta','workers'].forEach(doc=>{
-    db.collection('workplan').doc(doc).onSnapshot(snap=>{
+    const unsub=db.collection('workplan').doc(doc).onSnapshot(snap=>{
       if(!snap.exists)return;
-      if(window._localSaving)return; // Ignoruj počas lokálneho ukladania
+      if(window._localSaving)return;
       const d=snap.data();
       if(doc==='meta'){S.cinnosti=d.cinnosti||[];S.vpList=d.vpList||[];S.cinAssignments=d.cinAssignments||{};}
       if(doc==='workers'){S.workers=d.workers||[];}
       renderAll();
     });
+    _unsubscribers.push(unsub);
   });
   // Sleduj VP dokumenty
-  db.collection('workplan').onSnapshot(snap=>{
-    if(window._localSaving)return; // Ignoruj počas lokálneho ukladania
+  const unsubVp=db.collection('workplan').onSnapshot(snap=>{
+    if(window._localSaving)return;
     const newJobs=[];let nextId=1;
     snap.forEach(doc=>{
       if(!doc.id.startsWith('vp_'))return;
       const d=doc.data();
       if(d.jobs){newJobs.push(...d.jobs);d.jobs.forEach(j=>{if(j.id>=nextId)nextId=j.id+1;});}
     });
-    // Aktualizuj len ak sú dáta odlišné
     const newJobsStr=JSON.stringify(newJobs.map(j=>j.id).sort());
     const curJobsStr=JSON.stringify(S.jobs.map(j=>j.id).sort());
     if(newJobsStr!==curJobsStr){S.jobs=newJobs;S.nextJobId=nextId;renderAll();}
   });
+  _unsubscribers.push(unsubVp);
 }
 
 // ── Migrácia dát — oprava nekompatibilít medzi verziami ──
@@ -2135,7 +2147,7 @@ function addCinnost(){
   ['nc-zostava','nc-etapa','nc-cid','nc-name','nc-desc'].forEach(i=>document.getElementById(i).value='');
   save();renderAll();
 }
-function removeCin(id){S.cinnosti=S.cinnosti.filter(c=>c.id!=id);save();renderAll();}
+function removeCin(id){S.cinnosti=S.cinnosti.filter(c=>c.id!=id);saveNow();renderAll();}
 
 // ═══════════════════════════════════════════════════════════════════
 // IMPORT
@@ -2429,6 +2441,22 @@ function exportAll(){
 function save(){
   try{localStorage.setItem('wplan4',JSON.stringify(S));}catch(e){}
   saveToFirestore();
+}
+
+async function saveNow(){
+  try{localStorage.setItem('wplan4',JSON.stringify(S));}catch(e){}
+  if(!db||!currentUser)return;
+  clearTimeout(_saveTimer);
+  window._localSaving=true;
+  try{
+    await db.collection('workplan').doc('meta').set({
+      cinnosti:S.cinnosti||[],vpList:S.vpList||[],
+      cinAssignments:S.cinAssignments||{},nextCinId:S.nextCinId||1,
+      updatedAt:Date.now()
+    });
+    console.log('saveNow: cinnosti saved, count=',S.cinnosti.length);
+  }catch(e){console.warn('saveNow error:',e);}
+  finally{setTimeout(()=>{window._localSaving=false;},2000);}
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3082,7 +3110,11 @@ function renderUserBadge(){
 }
 
 function logout(){
+  stopRealtimeSync(); // Zastav listenery
   currentUser=null;
+  // Reset stavu ale zachovaj masters (uložené vo Firestore)
+  const savedMasters=S.masters||[];
+  S={workers:[],cinnosti:[],jobs:[],vpList:[],cinAssignments:{},masters:savedMasters,nextJobId:1,nextWorkerId:1,nextCinId:1};
   document.getElementById('login-page').style.display='flex';
   document.getElementById('pin-input').value='';
   document.getElementById('pin-error').textContent='';

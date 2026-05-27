@@ -2002,6 +2002,7 @@ function renderBasket(){
 }
 
 function renderAll(){
+  if(!currentUser)return;
   renderStats();renderJobs();renderCinnosti();renderWorkers();renderCinSelect();renderVpManager();renderVpFilterPills();
   renderMasters();
   // Show/hide admin nav
@@ -2486,10 +2487,7 @@ function save(){
 // ═══════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════
-document.getElementById('startDate').value=todayStr();
-document.getElementById('gantt-from').value=todayStr();
-document.getElementById('gantt-to').value=addDays(todayStr(),30);
-renderAll();
+// Dates will be set after login in startApp()
 
 // Init MSAL after short delay
 setTimeout(async ()=>{
@@ -3161,6 +3159,10 @@ async function doLogin(){
 async function startApp(){
   const loaded=await loadFromFirestore();
   if(!loaded)load();
+  // Init dates
+  document.getElementById('startDate').value=todayStr();
+  document.getElementById('gantt-from').value=todayStr();
+  document.getElementById('gantt-to').value=addDays(todayStr(),30);
   document.getElementById('login-page').style.display='none';
   startRealtimeSync();
   renderUserBadge();

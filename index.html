@@ -1,0 +1,3821 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WorkPlan — Plánovač výroby</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script>
+// Load XLSX - try local first, fallback to CDN
+(function(){
+  function loadScript(src, cb){\n  <!-- Firebase SDK -->\n  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    var s=document.createElement('script');s.src=src;
+    s.onload=cb;s.onerror=function(){cb(new Error('failed'))};
+    document.head.appendChild(s);
+  }
+  loadScript('xlsx.full.min.js', function(err){
+    if(err) loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', function(){});
+  });
+  loadScript('msal-browser.min.js', function(err){
+    if(err) loadScript('https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js', function(){});
+  });
+})();
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d12;--bg2:#13131c;--bg3:#1a1a27;--bg4:#22222f;
+  --border:#2a2a3a;--border2:#383850;
+  --text:#e8e8f0;--text2:#9898b0;--text3:#5a5a72;
+  --acc:#f0a500;--blue:#3b82f6;--green:#22c55e;--red:#ef4444;--purple:#a855f7;--teal:#14b8a6;
+  --font-head:'Syne',sans-serif;--font-body:'Outfit',sans-serif;--font-mono:'JetBrains Mono',monospace;
+  --r:10px;--r2:6px;
+}
+
+/* ── TÉMY ─────────────────────────────────── */
+[data-theme="dark-teal"]{
+  --bg:#090f12;--bg2:#0f1a1f;--bg3:#15262c;--bg4:#1c3038;
+  --border:#1e3a42;--border2:#2a5060;
+  --text:#d8f0f4;--text2:#6ab0c0;--text3:#3a7080;
+  --acc:#22d3ee;--green:#22c55e;--red:#ef4444;
+}
+[data-theme="dark-slate"]{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#1c2128;--bg4:#222831;
+  --border:#30363d;--border2:#484f58;
+  --text:#e6edf3;--text2:#8b949e;--text3:#484f58;
+  --acc:#f78166;--green:#3fb950;--red:#f85149;
+}
+[data-theme="light"]{
+  --bg:#f0f2f7;--bg2:#ffffff;--bg3:#e8ecf4;--bg4:#dde3ef;
+  --border:#cdd4e8;--border2:#b0bcda;
+  --text:#1a2340;--text2:#4a5878;--text3:#8090b8;
+  --acc:#2563eb;--green:#16a34a;--red:#dc2626;
+}
+[data-theme="light-warm"]{
+  --bg:#faf8f5;--bg2:#ffffff;--bg3:#f2ede8;--bg4:#e8e0d8;
+  --border:#ddd5c8;--border2:#c8bcb0;
+  --text:#2d2218;--text2:#6b5040;--text3:#a89080;
+  --acc:#c2500a;--green:#2d7a22;--red:#c0392b;
+}
+[data-theme="light-cool"]{
+  --bg:#f4f7fa;--bg2:#ffffff;--bg3:#eaeff5;--bg4:#dce4ee;
+  --border:#c8d5e5;--border2:#aabcd5;
+  --text:#1a2a3a;--text2:#3a5878;--text3:#7090b0;
+  --acc:#0891b2;--green:#059669;--red:#dc2626;
+}
+html{height:100%}
+body{min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;overflow-x:hidden}
+::selection{background:rgba(240,165,0,0.3);color:var(--text)}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0 0 1rem}
+.main{display:flex;flex-direction:column;min-height:100vh;overflow:hidden}
+.logo{padding:1.5rem 1.25rem 1rem;border-bottom:1px solid var(--border);margin-bottom:0.5rem}
+.logo-mark{display:flex;align-items:center;gap:8px}
+.logo-icon{width:32px;height:32px;background:var(--acc);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:14px;font-weight:600;color:#000}
+.logo-text{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-top:2px}
+.nav-section{padding:0.5rem 0.75rem 0.25rem;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 1.25rem;cursor:pointer;transition:all 0.15s;color:var(--text2);font-size:13px;font-weight:500;position:relative;margin:1px 0;user-select:none}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,0.03)}
+.nav-item.active{color:var(--acc);background:rgba(240,165,0,0.08)}
+.nav-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--acc)}
+.nav-icon{width:16px;text-align:center;font-size:15px}
+.sidebar-bottom{margin-top:auto;padding:1rem 1.25rem 0;border-top:1px solid var(--border)}
+.sidebar-stat{font-size:11px;color:var(--text3);margin-bottom:4px}
+.sidebar-stat strong{color:var(--text2)}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.page-title{font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text)}
+.content{flex:1;padding:1.5rem;overflow-y:auto}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:1rem}
+.card-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;top:0;right:0;width:60px;height:60px;background:radial-gradient(ellipse at top right,rgba(240,165,0,0.08) 0%,transparent 70%)}
+.stat-n{font-family:var(--font-mono);font-size:26px;font-weight:600;color:var(--text);line-height:1}
+.stat-l{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px}
+.stat-card.blue .stat-n{color:var(--blue)}.stat-card.blue::after{background:radial-gradient(ellipse at top right,rgba(59,130,246,0.1) 0%,transparent 70%)}
+.stat-card.green .stat-n{color:var(--green)}.stat-card.green::after{background:radial-gradient(ellipse at top right,rgba(34,197,94,0.1) 0%,transparent 70%)}
+.stat-card.purple .stat-n{color:var(--purple)}.stat-card.purple::after{background:radial-gradient(ellipse at top right,rgba(168,85,247,0.1) 0%,transparent 70%)}
+.field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:100px}
+.field label{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3)}
+input,select{width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text);font-size:13px;font-family:var(--font-body);transition:border-color 0.15s;-webkit-appearance:none;appearance:none}
+input:focus,select:focus{outline:none;border-color:var(--acc)}
+select option{background:var(--bg3)}
+input[type=date],input[type=time]{color-scheme:dark}
+.btn{padding:8px 16px;border-radius:var(--r2);font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--font-body);white-space:nowrap;transition:all 0.15s}
+.btn:active{transform:scale(0.97)}
+.btn-accent{background:var(--acc);color:#000}.btn-accent:hover{background:#f5b800}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text2)}.btn-outline:hover{border-color:var(--text2);color:var(--text)}
+.btn-danger{background:transparent;border:1px solid transparent;color:var(--text3)}.btn-danger:hover{border-color:var(--red);color:var(--red)}
+.btn-sm{padding:5px 10px;font-size:11px;border-radius:5px}
+.btn-green{background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3)}.btn-green:hover{background:rgba(34,197,94,0.25)}
+.btn-export{background:rgba(59,130,246,0.12);color:var(--blue);border:1px solid rgba(59,130,246,0.3)}.btn-export:hover{background:rgba(59,130,246,0.22)}
+.alert{padding:8px 12px;border-radius:var(--r2);font-size:12px;margin-top:8px;line-height:1.7}
+.alert-err{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#fca5a5}
+.alert-ok{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#86efac}
+.alert-info{background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#93c5fd}
+.alert-warn{background:rgba(240,165,0,0.1);border:1px solid rgba(240,165,0,0.3);color:#fcd34d}
+.prof-badge{display:inline-flex;align-items:center;font-family:var(--font-mono);font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px}
+.pf-2320{background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.25)}
+.pf-2325{background:rgba(34,197,94,0.15);color:#86efac;border:1px solid rgba(34,197,94,0.25)}
+.pf-2321{background:rgba(240,165,0,0.15);color:#fcd34d;border:1px solid rgba(240,165,0,0.25)}
+.pf-other{background:rgba(168,85,247,0.15);color:#d8b4fe;border:1px solid rgba(168,85,247,0.25)}
+.chip{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--border2);color:var(--text2);background:var(--bg3);display:inline-block}
+.badge-free{background:rgba(34,197,94,0.12);color:#86efac;border:1px solid rgba(34,197,94,0.2);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.badge-absence{background:rgba(100,100,120,0.2);color:#aaa;border:1px solid rgba(150,150,170,0.3);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.badge-absence{background:rgba(100,100,120,0.2);color:#aaa;border:1px solid rgba(150,150,170,0.3);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.badge-busy{background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.job-id-tag{font-family:var(--font-mono);font-size:10px;padding:2px 7px;background:var(--bg4);border:1px solid var(--border);border-radius:4px;color:var(--text3)}
+.job-card{border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:8px;background:var(--bg2);transition:border-color 0.15s,transform 0.1s}
+.job-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.job-card.done-card{opacity:0.4}
+.job-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.job-name{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text);line-height:1.3;margin:4px 0 2px}
+.job-desc{font-size:11px;color:var(--text3);margin-bottom:8px}
+.job-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.meta-pill{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 7px;color:var(--text2);font-size:11px}
+.chips-row{display:flex;flex-wrap:wrap;gap:5px}
+.job-actions{display:flex;gap:5px;flex-shrink:0}
+.job-tag-line{display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap}
+.w-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.w-row:last-child{border-bottom:none}
+.avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;font-family:var(--font-mono)}
+.av-2320{background:rgba(59,130,246,0.2);color:#93c5fd}
+.av-2325{background:rgba(34,197,94,0.2);color:#86efac}
+.av-2321{background:rgba(240,165,0,0.2);color:#fcd34d}
+.av-other{background:rgba(168,85,247,0.2);color:#d8b4fe}
+.w-info{flex:1;min-width:0}
+.w-name{font-size:13px;font-weight:600;color:var(--text)}
+.w-detail{font-size:11px;color:var(--text3);margin-top:2px}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:8px 10px;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg3)}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,0.02);color:var(--text)}
+.tbl-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border)}
+.gantt-container{overflow-x:auto}
+.gantt-header-row{display:flex;border-bottom:1px solid var(--border);background:var(--bg3);position:sticky;top:0;z-index:2}
+.g-label{width:210px;flex-shrink:0;padding:6px 10px;font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);border-right:1px solid var(--border)}
+.g-days{display:flex;flex:1}
+.g-dh{font-family:var(--font-mono);font-size:9px;color:var(--text3);text-align:center;padding:4px 1px;flex:1;border-right:1px solid rgba(255,255,255,0.03);min-width:34px;line-height:1.2}
+.g-dh.wend{background:rgba(239,68,68,0.06);color:#fca5a5}
+.g-dh.sat-work{background:rgba(20,184,166,0.08);color:#5eead4}
+.g-dh.sun-work{background:rgba(168,85,247,0.08);color:#c4b5fd}
+.g-row{display:flex;border-bottom:1px solid rgba(255,255,255,0.04)}
+.g-row:hover{background:rgba(255,255,255,0.012)}
+.g-name{width:210px;flex-shrink:0;padding:5px 10px;font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-right:1px solid var(--border);display:flex;align-items:center;gap:5px}
+.g-cells{display:flex;flex:1;height:30px}
+.g-cell{flex:1;min-width:34px;border-right:1px solid rgba(255,255,255,0.03);position:relative;overflow:hidden}
+.g-cell.wend{background:rgba(239,68,68,0.04)}
+.g-cell.sat-work{background:rgba(20,184,166,0.05)}
+.g-cell.sun-work{background:rgba(168,85,247,0.05)}
+.g-bar{position:absolute;top:50%;transform:translateY(-50%);height:18px;border-radius:3px;left:0}
+.g-bar.bar-work{background:var(--acc);opacity:0.85}
+.g-bar.bar-sat{background:var(--teal);opacity:0.8}
+.g-bar.bar-sun{background:var(--purple);opacity:0.8}
+.g-bar.bar-done{background:#555;opacity:0.6}
+.g-sub-row .g-cells{height:22px}
+.g-sub-row .g-bar{height:12px}
+.drop-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:2.5rem;text-align:center;cursor:pointer;transition:all 0.2s}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--acc);background:rgba(240,165,0,0.04)}
+.drop-icon{font-size:32px;margin-bottom:10px;opacity:0.5}
+.drop-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px}
+.drop-sub{font-size:12px;color:var(--text3)}
+.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px}
+.section-head h3{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text)}
+.filter-pills{display:flex;gap:4px;flex-wrap:wrap}
+.fpill{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--text3);background:transparent;transition:all 0.15s;font-family:var(--font-body)}
+.fpill:hover{border-color:var(--border2);color:var(--text2)}
+.fpill.active{background:var(--acc);color:#000;border-color:var(--acc)}
+.col-note{font-size:11px;color:var(--text3);margin-bottom:1rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:8px 12px;line-height:1.6}
+.col-note span{font-family:var(--font-mono);background:var(--bg4);padding:1px 5px;border-radius:3px;color:var(--acc)}
+.empty-state{text-align:center;padding:3rem;color:var(--text3)}
+.empty-icon{font-size:36px;margin-bottom:8px;opacity:0.3}
+/* toggle switch */
+.sw-wrap{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.sw{position:relative;width:36px;height:20px;flex-shrink:0}
+.sw input{opacity:0;width:0;height:0;position:absolute}
+.sw-track{position:absolute;inset:0;background:var(--bg4);border:1px solid var(--border);border-radius:10px;transition:0.2s;cursor:pointer}
+.sw input:checked+.sw-track{background:rgba(240,165,0,0.25);border-color:var(--acc)}
+.sw-track::after{content:'';position:absolute;width:14px;height:14px;background:var(--text3);border-radius:50%;left:2px;top:2px;transition:0.2s}
+.sw input:checked+.sw-track::after{background:var(--acc);left:18px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.job-card{animation:fadeIn 0.18s ease}
+@media(max-width:768px){.shell{grid-template-columns:1fr}.sidebar{display:none}.stats-bar{grid-template-columns:repeat(2,1fr)}}
+
+/* OneDrive sync */
+.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block}
+.sync-dot.synced{background:#22c55e}
+.sync-dot.syncing{background:#f0a500;animation:pulse 1s infinite}
+.sync-dot.offline{background:#5a5a72}
+.sync-dot.error{background:#ef4444}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.sync-label{color:#5a5a72;font-size:11px}
+.user-chip{display:flex;align-items:center;gap:6px;background:#1a1a27;border:1px solid #2a2a3a;border-radius:20px;padding:3px 10px 3px 6px;font-size:11px;color:#9898b0}
+.user-av{width:20px;height:20px;border-radius:50%;background:rgba(240,165,0,0.2);color:#f0a500;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+</style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!-- LOGIN PAGE -->
+<div id="login-page" style="display:flex;position:fixed;inset:0;background:var(--bg);align-items:center;justify-content:center;z-index:1000;flex-direction:column">
+  <div style="text-align:center;margin-bottom:32px">
+    <div style="font-family:var(--font-head);font-size:36px;font-weight:800;color:var(--text);letter-spacing:-0.02em">Work<span style="color:var(--acc)">Plan</span></div>
+    <div style="font-size:13px;color:var(--text3);margin-top:4px">Výrobný plánovač · JPJ Výroba</div>
+  </div>
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:2rem;width:340px;max-width:90vw">
+    <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:16px;text-align:center">Zadaj prístupový PIN</div>
+    <input id="pin-input" type="password" placeholder="••••••"
+      style="width:100%;padding:12px 14px;background:var(--bg3);border:2px solid var(--border);border-radius:8px;color:var(--text);font-size:22px;font-family:var(--font-mono);text-align:center;letter-spacing:0.3em;margin-bottom:10px;box-sizing:border-box;outline:none"
+      onkeydown="if(event.key==='Enter')doLogin()"
+      onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+    <div id="pin-error" style="color:var(--red);font-size:12px;text-align:center;min-height:18px;margin-bottom:10px"></div>
+    <button onclick="doLogin()" class="btn btn-accent" style="width:100%;padding:12px;font-size:15px;border-radius:8px" id="btn-login">Vstúpiť</button>
+  </div>
+</div>
+
+<div class="shell">
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">
+      <div class="logo-icon">WP</div>
+      <div><div class="logo-text">WorkPlan</div><div class="logo-sub">Výrobný plánovač</div></div>
+    </div>
+  </div>
+  <div class="nav-section">Menu</div>
+  <div class="nav-item active" onclick="nav('plan',this)"><span class="nav-icon">◈</span> Plánovanie</div>
+  <div class="nav-item" onclick="nav('gantt',this)"><span class="nav-icon">▤</span> Gantt diagram</div>
+  <div class="nav-item" onclick="nav('cinnosti',this)"><span class="nav-icon">≡</span> Činnosti</div>
+  <div class="nav-item" onclick="nav('workers',this)"><span class="nav-icon">◉</span> Pracovníci</div>
+  <div class="nav-section" style="margin-top:0.5rem">Dáta</div>
+  <div class="nav-item" onclick="nav('import',this)"><span class="nav-icon">⇑</span> Import XLSX</div>
+  <div class="nav-item" id="nav-masters" onclick="nav('masters',this)" style="display:none"><span class="nav-icon">👥</span> Majstri</div>
+  <div class="nav-item" onclick="exportAll()"><span class="nav-icon">⇓</span> Export XLSX</div>
+  <div class="sidebar-bottom">
+    <div class="sidebar-stat">Pracovníci: <strong id="sb-w">0</strong></div>
+    <div class="sidebar-stat">Činnosti: <strong id="sb-c">0</strong></div>
+    <div class="sidebar-stat">Aktívne úlohy: <strong id="sb-j">0</strong></div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="page-title" id="page-title">Plánovanie</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div id="sync-area" style="display:flex;align-items:center;gap:6px"></div>
+      <button onclick="openThemePicker()" title="Zmeniť tému" style="background:none;border:1px solid var(--border);border-radius:6px;padding:5px 9px;cursor:pointer;font-size:15px;color:var(--text2);line-height:1;transition:all 0.15s" onmouseover="this.style.borderColor='var(--acc)'" onmouseout="this.style.borderColor='var(--border)'">🎨</button>
+      <button class="btn btn-export btn-sm" onclick="exportAll()">⇓ Export XLSX</button>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- PLAN -->
+    <div class="tab-panel active" id="panel-plan">
+      <div class="stats-bar" id="stats-bar"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text3);font-weight:600">VP filter:</span>
+        <div id="vp-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Nová úloha</div>
+
+        <!-- Mode toggle -->
+        <div style="display:flex;gap:4px;margin-bottom:12px">
+          <button id="mode-single" class="btn btn-accent btn-sm" onclick="setAssignMode('single')">Jedna činnosť</button>
+          <button id="mode-multi" class="btn btn-outline btn-sm" onclick="setAssignMode('multi')">Balíček činností</button>
+        </div>
+
+        <div class="card-row" style="margin-bottom:12px">
+          <div class="field" style="min-width:120px;max-width:140px">
+            <label>Zostava</label>
+            <select id="plan-zostava-select" onchange="onZostavaChange()"><option value="">— zostava —</option></select>
+          </div>
+          <div class="field" style="min-width:100px;max-width:120px">
+            <label>Profesia</label>
+            <select id="plan-prof-select" onchange="onProfChange()" disabled><option value="">— profesia —</option></select>
+          </div>
+          <div class="field" style="flex:2;min-width:180px">
+            <label>Činnosť</label>
+            <select id="cin-select" onchange="onCinChange()" disabled><option value="">— najprv zostava —</option></select>
+          </div>
+          <!-- Multi mode: add to basket button -->
+          <button id="btn-add-basket" class="btn btn-outline btn-sm" onclick="addToBasket()" style="display:none;align-self:flex-end;white-space:nowrap">+ Do balíčka</button>
+          <div class="field" style="max-width:80px" id="field-nh"><label>Nh celkom</label><input type="number" id="nh-val" min="0.5" step="0.5" placeholder="auto"></div>
+          <div class="field" style="max-width:65px"><label>Ľudia</label><input type="number" id="pocet" min="1" value="1"></div>
+          <div class="field" style="max-width:145px"><label>Dátum začiatku</label><input type="date" id="startDate"></div>
+          <div class="field" style="max-width:105px"><label>Čas začiatku</label><input type="time" id="startTime" value="06:00"></div>
+          <button class="btn btn-accent" onclick="openAssignModal()" style="align-self:flex-end" id="btn-assign">Priradiť ▾</button>
+        </div>
+
+        <!-- Multi mode: basket -->
+        <div id="basket-area" style="display:none;margin-bottom:10px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">
+            Balíček činností <span id="basket-nh-total" style="color:var(--acc)"></span>
+          </div>
+          <div id="basket-list" style="display:flex;flex-wrap:wrap;gap:5px;min-height:32px;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+            <span id="basket-empty" style="font-size:12px;color:var(--text3)">Prázdny — pridaj činnosti zo zoznamu</span>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="clearBasket()" style="font-size:11px">Vyčistiť</button>
+        </div>
+
+        <div style="display:flex;gap:20px;margin-bottom:8px;flex-wrap:wrap">
+          <label class="sw-wrap">
+            <span class="sw"><input type="checkbox" id="allow-sat"><span class="sw-track"></span></span>
+            <span style="font-size:12px;color:var(--teal)">Sobota pracovná</span>
+          </label>
+          <label class="sw-wrap">
+            <span class="sw"><input type="checkbox" id="allow-sun"><span class="sw-track"></span></span>
+            <span style="font-size:12px;color:var(--purple)">Nedeľa pracovná</span>
+          </label>
+        </div>
+        <div id="cin-info" style="font-size:11px;color:var(--text3);min-height:16px;margin-bottom:4px"></div>
+        <div id="assign-msg"></div>
+      </div>
+      <div class="card">
+        <div class="section-head">
+          <h3>Plán úloh</h3>
+          <div class="filter-pills">
+            <button class="fpill active" onclick="filterJobs('all',this)">Všetky</button>
+            <button class="fpill" onclick="filterJobs('active',this)">Aktívne</button>
+            <button class="fpill" onclick="filterJobs('done',this)">Splnené</button>
+          </div>
+        </div>
+        <div id="jobs-list"></div>
+      </div>
+    </div>
+
+    <!-- GANTT -->
+    <div class="tab-panel" id="panel-gantt">
+      <div class="card">
+        <div class="section-head">
+          <h3>Ganttov diagram</h3>
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <div class="field" style="max-width:130px"><label style="font-size:9px">Od</label><input type="date" id="gantt-from"></div>
+            <div class="field" style="max-width:130px"><label style="font-size:9px">Do</label><input type="date" id="gantt-to"></div>
+            <button class="btn btn-outline btn-sm" onclick="renderGantt()">Aktualizovať</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;font-size:11px;margin-bottom:12px;color:var(--text3);flex-wrap:wrap">
+          <span><span style="display:inline-block;width:12px;height:12px;background:var(--acc);border-radius:2px;opacity:.85;vertical-align:middle"></span> Pracovný deň</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:var(--teal);border-radius:2px;opacity:.8;vertical-align:middle"></span> Sobota</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:var(--purple);border-radius:2px;opacity:.8;vertical-align:middle"></span> Nedeľa</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#555;border-radius:2px;vertical-align:middle"></span> Splnená</span>
+          <span style="color:var(--text3)">Šírka prúžku = podiel pracovného dňa</span>
+        </div>
+        <div class="gantt-container" id="gantt-content"></div>
+      </div>
+    </div>
+
+    <!-- CINNOSTI -->
+    <div class="tab-panel" id="panel-cinnosti">
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:1rem;align-items:start">
+
+        <!-- Left: zostava picker -->
+        <div>
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title">Zostavy</div>
+            <div id="zostava-picker"></div>
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Nh celkom</div>
+              <div id="zostava-nh-stats"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: cinnosti of selected zostava -->
+        <div>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h3 id="cin-tab-title">Vyber zostavu</h3>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px" id="cin-count"></div>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <select id="cin-filter-etapa" onchange="renderCinnosti()" style="padding:5px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text2)">
+                  <option value="">Všetky etapy</option>
+                </select>
+                <input type="text" id="cin-search" placeholder="Hľadaj..." oninput="renderCinnosti()" style="padding:5px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);width:120px">
+                <button class="btn btn-danger btn-sm" onclick="clearCinZostava()" title="Vymazať zobrazenú zostavu">✕ Zostava</button>
+                <button class="btn btn-danger btn-sm" onclick="clearAllCin()" title="Vymazať všetky činnosti">✕ Všetko</button>
+              </div>
+            </div>
+            <div class="tbl-wrap"><div id="cin-table"><div class="empty-state"><div class="empty-icon">◈</div>Vyber zostavu vľavo</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add cinnost form (collapsed) -->
+      <div class="card" style="margin-top:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'flex':'none'">
+          <div class="card-title" style="margin:0">+ Pridať činnosť manuálne</div>
+          <span style="color:var(--text3);font-size:12px">▼</span>
+        </div>
+        <div style="display:none;flex-wrap:wrap;gap:10px;margin-top:12px" class="card-row">
+          <div class="field" style="max-width:80px"><label>Zostava</label><input type="text" id="nc-zostava" placeholder="HV5"></div>
+          <div class="field" style="max-width:80px"><label>Etapa</label><input type="text" id="nc-etapa" placeholder="MS00"></div>
+          <div class="field" style="max-width:100px"><label>ID kód</label><input type="text" id="nc-cid" placeholder="TE004611"></div>
+          <div class="field" style="flex:2;min-width:150px"><label>Názov</label><input type="text" id="nc-name" placeholder="Zváranie rámu"></div>
+          <div class="field" style="flex:1;min-width:140px"><label>Popis</label><input type="text" id="nc-desc" placeholder="kamene, zváranie"></div>
+          <div class="field" style="max-width:90px"><label>Profesia</label><input type="text" id="nc-prof" placeholder="2320"></div>
+          <div class="field" style="max-width:70px"><label>Nh</label><input type="number" id="nc-nh" step="0.5" value="8"></div>
+          <button class="btn btn-accent" onclick="addCinnost()" style="align-self:flex-end">+ Pridať</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORKERS -->
+    <div class="tab-panel" id="panel-workers">
+      <div class="card">
+        <div class="card-title">Pridať pracovníka</div>
+        <div class="card-row">
+          <div class="field" style="flex:1;min-width:140px"><label>Meno</label><input type="text" id="nw-name" placeholder="Ján Kováč"></div>
+          <div class="field" style="max-width:100px"><label>Profesia</label><input type="text" id="nw-prof" placeholder="2320"></div>
+          <div class="field" style="max-width:120px">
+            <label>Hodiny/deň</label>
+            <select id="nw-hours">
+              <option value="7.5">7,5 h</option><option value="8" selected>8,0 h</option>
+              <option value="9">9,0 h</option><option value="9.5">9,5 h</option>
+              <option value="10">10,0 h</option><option value="12">12,0 h</option>
+            </select>
+          </div>
+          <button class="btn btn-accent" onclick="addWorker()" style="align-self:flex-end">+ Pridať</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-head">
+          <h3>Pracovníci</h3>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:11px;color:var(--text3)" id="worker-count"></span>
+            <button class="btn btn-danger btn-sm" onclick="clearAllWorkers()">✕ Vymazať všetkých</button>
+          </div>
+        </div>
+        <div id="workers-list"></div>
+      </div>
+    </div>
+
+    <!-- IMPORT -->
+    <div class="tab-panel" id="panel-import">
+      <div class="card">
+        <div class="card-title">Import činností z Excelu</div>
+        <div class="col-note">Stĺpce: <span>A</span>=Etapa &nbsp;<span>C</span>=ID kód &nbsp;<span>D</span>=Názov &nbsp;<span>E</span>=Popis &nbsp;<span>F</span>=Profesia &nbsp;<span>M</span>=Nh &nbsp;— Názov hárka = Zostava &nbsp;— Nahrá všetky hárky naraz</div>
+        <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+          <div class="field" style="max-width:120px">
+            <label>Počet kusov (VP)</label>
+            <input type="number" id="import-vp-count" min="1" max="99" value="1" oninput="updateVpPreview()">
+          </div>
+          <div style="font-size:12px;color:var(--text3);padding-bottom:10px">
+            Vytvorí <span id="import-vp-preview" style="color:var(--acc);font-weight:600">VP-001</span> až <span id="import-vp-preview-end" style="color:var(--acc);font-weight:600">VP-001</span>
+          </div>
+        </div>
+        <div class="drop-zone" id="drop-cin" onclick="document.getElementById('file-cin').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="handleDropCin(event)">
+          <div class="drop-icon">📊</div>
+          <div class="drop-title">Pretiahni súbor zostáv sem alebo klikni</div>
+          <div class="drop-sub">Načíta všetky hárky (HV5, VV5, VV6, HV6...)</div>
+        </div>
+        <input type="file" id="file-cin" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileCin(this.files[0])">
+        <div id="import-cin-msg"></div><div id="import-cin-preview"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Správa výrobných príkazov (VP)</div>
+        <div id="vp-manager"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Import priradení pracovníkov k činnostiam</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px">
+          Špeciálny formát: stĺpec A = meno pracovníka, stĺpec C = ID kód činnosti. Každý hárok = zostava.
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;color:var(--text2)">
+          📋 Vyber súbor s priradeniami
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importAssignments(this.files[0])">
+        </label>
+        <div id="assign-import-msg" style="margin-top:8px"></div>
+        <div style="margin-top:6px;font-size:11px;color:var(--text3)" id="assign-import-status"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Import pracovníkov z Excelu</div>
+        <div class="col-note">Stĺpce: <span>A</span>=Meno &nbsp;<span>B</span>=Profesia &nbsp;<span>C</span>=Hodiny/deň (napr. 7.5) — prvý riadok ako hlavička sa preskočí</div>
+        <div class="drop-zone" id="drop-wkr" onclick="document.getElementById('file-wkr').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="handleDropWkr(event)">
+          <div class="drop-icon">👥</div>
+          <div class="drop-title">Pretiahni XLSX sem alebo klikni</div>
+          <div class="drop-sub">.xlsx · .xls · .csv</div>
+        </div>
+        <input type="file" id="file-wkr" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileWkr(this.files[0])">
+        <div id="import-wkr-msg"></div><div id="import-wkr-preview"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'Majstri'};
+let jobFilter='all';
+let _assignParams=null;
+let S={
+  workers:[],
+  cinnosti:[],
+  jobs:[],
+  vpList:[],
+  cinAssignments:{},
+  masters:[],  // ['VP-001','VP-002',...]
+  nextJobId:1,nextWorkerId:1,nextCinId:1,
+};
+
+function load(){try{const d=localStorage.getItem('wplan4');if(d)S=JSON.parse(d)}catch(e){}}
+load();
+
+// ── FIREBASE ──────────────────────────────────────────────────────
+const firebaseConfig={
+  apiKey:"AIzaSyAWgzpnYrjI65EhO4gSBtDfxPcNUiSzv6g",
+  authDomain:"jpj-vyroba.firebaseapp.com",
+  projectId:"jpj-vyroba",
+  storageBucket:"jpj-vyroba.firebasestorage.app",
+  messagingSenderId:"1057275613810",
+  appId:"1:1057275613810:web:e2077d11f85a23f52628eb"
+};
+
+let db=null, currentUser=null, _saveTimer=null;
+
+function initFirebase(){
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db=firebase.firestore();
+    console.log('Firebase OK');
+  }catch(e){console.warn('Firebase init error:',e);}
+}
+
+// Uloží dáta do Firestore (debounced 1.5s)
+function saveToFirestore(){
+  if(!db||!currentUser)return;
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(async()=>{
+    try{
+      // Meta + workers
+      await db.collection('workplan').doc('meta').set({
+        cinnosti:S.cinnosti||[],
+        vpList:S.vpList||[],
+        cinAssignments:S.cinAssignments||{},
+        nextCinId:S.nextCinId||1,
+        updatedAt:Date.now()
+      });
+      await db.collection('workplan').doc('workers').set({
+        workers:S.workers||[],
+        nextWorkerId:S.nextWorkerId||1,
+        updatedAt:Date.now()
+      });
+      // Jobs per VP
+      const byVp={};
+      (S.jobs||[]).forEach(j=>{
+        const vp=j.vp||'_none';
+        if(!byVp[vp])byVp[vp]=[];
+        byVp[vp].push(j);
+      });
+      const batch=db.batch();
+      Object.entries(byVp).forEach(([vp,jobs])=>{
+        const ref=db.collection('workplan').doc('vp_'+vp);
+        batch.set(ref,{jobs,updatedAt:Date.now()});
+      });
+      // Majstri
+      const mastersRef=db.collection('workplan').doc('masters');
+      batch.set(mastersRef,{masters:S.masters||[],updatedAt:Date.now()},{merge:true});
+      await batch.commit();
+    }catch(e){console.warn('Firestore save error:',e);}
+  },1500);
+}
+
+// Načíta všetky dáta z Firestore
+async function loadFromFirestore(){
+  if(!db)return false;
+  try{
+    const [metaSnap,workersSnap,mastersSnap]=await Promise.all([
+      db.collection('workplan').doc('meta').get(),
+      db.collection('workplan').doc('workers').get(),
+      db.collection('workplan').doc('masters').get()
+    ]);
+    if(metaSnap.exists){
+      const m=metaSnap.data();
+      S.cinnosti=m.cinnosti||[];
+      S.vpList=m.vpList||[];
+      S.cinAssignments=m.cinAssignments||{};
+      S.nextCinId=m.nextCinId||1;
+    }
+    if(workersSnap.exists){
+      const w=workersSnap.data();
+      S.workers=w.workers||[];
+      S.nextWorkerId=w.nextWorkerId||1;
+    }
+    if(mastersSnap.exists){
+      S.masters=mastersSnap.data().masters||[];
+    }
+    // Načítaj všetky VP dokumenty
+    const vpSnaps=await db.collection('workplan').where(firebase.firestore.FieldPath.documentId(),'>=','vp_').get();
+    S.jobs=[];
+    S.nextJobId=1;
+    vpSnaps.forEach(doc=>{
+      const d=doc.data();
+      if(d.jobs){
+        S.jobs=S.jobs.concat(d.jobs);
+        d.jobs.forEach(j=>{if(j.id>=S.nextJobId)S.nextJobId=j.id+1;});
+      }
+    });
+    return true;
+  }catch(e){console.warn('Firestore load error:',e);return false;}
+}
+
+// Real-time listener — aktualizuje dáta keď niekto iný zmení
+function startRealtimeSync(){
+  if(!db)return;
+  ['meta','workers'].forEach(doc=>{
+    db.collection('workplan').doc(doc).onSnapshot(snap=>{
+      if(!snap.exists)return;
+      const d=snap.data();
+      if(doc==='meta'){S.cinnosti=d.cinnosti||[];S.vpList=d.vpList||[];S.cinAssignments=d.cinAssignments||{};}
+      if(doc==='workers'){S.workers=d.workers||[];}
+      renderAll();
+    });
+  });
+  // Sleduj VP dokumenty
+  db.collection('workplan').onSnapshot(snap=>{
+    const newJobs=[];let nextId=1;
+    snap.forEach(doc=>{
+      if(!doc.id.startsWith('vp_'))return;
+      const d=doc.data();
+      if(d.jobs){newJobs.push(...d.jobs);d.jobs.forEach(j=>{if(j.id>=nextId)nextId=j.id+1;});}
+    });
+    if(newJobs.length>0||S.jobs.length>0){S.jobs=newJobs;S.nextJobId=nextId;renderAll();}
+  });
+}
+
+// ── Migrácia dát — oprava nekompatibilít medzi verziami ──
+(function migrate(){
+  if(!S.jobs)S.jobs=[];
+  if(!S.workers)S.workers=[];
+  if(!S.cinnosti)S.cinnosti=[];
+  if(!S.vpList)S.vpList=[];
+  S.jobs.forEach(j=>{
+    if(!j.workerIds)j.workerIds=[];
+    if(!j.workerNames)j.workerNames=[];
+    if(!j.schedule)j.schedule=[];
+    if(j.done===undefined)j.done=false;
+    if(!j.vp)j.vp='';
+    if(j.nhPerWorker===undefined)j.nhPerWorker=j.nh||0;
+    if(!j.startH&&j.startH!==0)j.startH=6;
+    if(!j.endH&&j.endH!==0)j.endH=6;
+    j.workerIds=j.workerIds.map(id=>parseInt(id));
+    j.schedule.forEach(s=>{s.wid=parseInt(s.wid);});
+    if(j.pastWorkerIds)j.pastWorkerIds=j.pastWorkerIds.map(id=>parseInt(id));
+  });
+  S.workers.forEach(w=>{w.id=parseInt(w.id);if(!w.hours)w.hours=8;});
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// DATE HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function todayStr(){return new Date().toISOString().split('T')[0]}
+function addDays(ds,n){const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().split('T')[0]}
+function fmtDate(s){if(!s)return'';return new Date(s+'T12:00:00').toLocaleDateString('sk-SK',{day:'2-digit',month:'2-digit',year:'numeric'})}
+function fmtShort(s){if(!s)return'';const d=new Date(s+'T12:00:00');return `${d.getDate()}.${d.getMonth()+1}.`;}
+function dow(ds){return new Date(ds+'T12:00:00').getDay()} // 0=Sun 6=Sat
+function isSat(ds){return dow(ds)===6}
+function isSun(ds){return dow(ds)===0}
+
+function isWorkday(ds,allowSat,allowSun){
+  const d=dow(ds);
+  if(d>=1&&d<=5)return true;
+  if(d===6&&allowSat)return true;
+  if(d===0&&allowSun)return true;
+  return false;
+}
+
+function fmtH(h){
+  const mm=Math.round(h*60);
+  const hh=Math.floor(mm/60);
+  const m=mm%60;
+  return String(hh).padStart(2,'0')+':'+String(m).padStart(2,'0');
+}
+
+function fmtDT(ds,h){return fmtDate(ds)+' '+fmtH(h)}
+
+// ═══════════════════════════════════════════════════════════════════
+// HOURLY SCHEDULING ENGINE
+// ═══════════════════════════════════════════════════════════════════
+// Each job stores schedule: [{wid, date, startH, endH}, ...]
+// Slots are in fractional hours from midnight (e.g. 6.0 = 06:00, 14.5 = 14:30)
+
+function getWorkerSlots(wid){
+  const out=[];
+  S.jobs.forEach(j=>{
+    if(j.done)return;
+    if(!j.schedule)return;
+    j.schedule.forEach(s=>{if(s.wid===wid)out.push(s);});
+  });
+  return out;
+}
+
+// BUG1 FIX:
+// dayStartH = clock hour when work starts (e.g. 6.0 = 06:00)
+// durationH = how many hours the worker works per day (e.g. 8 = 8 hours)
+// dayEndH   = dayStartH + durationH  (e.g. 6 + 8 = 14.0 = 14:00)
+// fromH     = first clock hour we can start filling (≥ dayStartH, on first day may be later)
+// Returns free intervals as [{from, to}] in absolute clock hours
+function isWorkerAbsent(wid, date){
+  const w=S.workers.find(x=>parseInt(x.id)===parseInt(wid));
+  if(!w||!w.absencie||!w.absencie.length)return false;
+  return w.absencie.some(a=>a.od<=date&&a.do>=date);
+}
+
+function freeIntervalsOnDay(wid, date, dayStartH, durationH, fromClockH){
+  // Ak je pracovník na dovolenke/PN — celý deň blokovaný
+  if(isWorkerAbsent(wid, date)) return [];
+
+  const dayEndH = dayStartH + durationH;          // e.g. 6 + 8 = 14
+  const cursor0 = Math.max(fromClockH, dayStartH); // never before shift start
+  if(cursor0 >= dayEndH) return [];                 // no room at all
+
+  const daySlots = getWorkerSlots(wid)
+    .filter(s => s.date === date)
+    .sort((a, b) => a.startH - b.startH);
+
+  const intervals = [];
+  let cursor = cursor0;
+
+  for(const s of daySlots){
+    if(s.startH >= dayEndH) break;       // slot starts after shift — ignore
+    if(s.endH <= cursor) continue;       // slot already behind cursor
+    if(s.startH > cursor){
+      intervals.push({from: cursor, to: Math.min(s.startH, dayEndH)});
+    }
+    cursor = Math.max(cursor, s.endH);
+  }
+  if(cursor < dayEndH) intervals.push({from: cursor, to: dayEndH});
+  return intervals;
+}
+
+// Schedule exactly nhNeeded hours for worker wid
+// dayStartH = shift start clock hour (e.g. 6), durationH = shift length (e.g. 8)
+// On first day we may start later (fromClockH), subsequent days always from dayStartH
+function scheduleWorker(wid, nhNeeded, startDate, fromClockH, dayStartH, durationH, allowSat, allowSun){
+  const slots = [];
+  let remaining = nhNeeded;
+  let d = startDate;
+  let clockFrom = fromClockH; // first day: may be mid-shift; rest: dayStartH
+
+  for(let i = 0; i < 730 && remaining > 0.0001; i++){
+    if(!isWorkday(d, allowSat, allowSun)||isWorkerAbsent(wid,d)){ d = addDays(d, 1); clockFrom = dayStartH; continue; }
+
+    const intervals = freeIntervalsOnDay(wid, d, dayStartH, durationH, clockFrom);
+    for(const iv of intervals){
+      if(remaining <= 0.0001) break;
+      const canUse = Math.min(remaining, iv.to - iv.from);
+      if(canUse < 0.0001) continue;
+      slots.push({wid, date: d, startH: iv.from, endH: iv.from + canUse});
+      remaining -= canUse;
+    }
+    d = addDays(d, 1);
+    clockFrom = dayStartH; // from next day always start at shift begin
+  }
+
+  const last = slots[slots.length - 1];
+  return {slots, endDate: last ? last.date : startDate, endH: last ? last.endH : fromClockH};
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ASSIGN JOB
+// ═══════════════════════════════════════════════════════════════════
+function profClass(p){
+  if(p=='2320')return'2320';if(p=='2325')return'2325';if(p=='2321')return'2321';return'other';
+}
+function initials(n){return n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+
+function onCinChange(){
+  const id=document.getElementById('cin-select').value;
+  const cin=S.cinnosti.find(c=>c.id==id);
+  const info=document.getElementById('cin-info');
+  const nhEl=document.getElementById('nh-val');
+  if(cin){
+    nhEl.value=cin.nh;
+    info.innerHTML=`<span class="prof-badge pf-${profClass(cin.prof)}">${cin.prof}</span>&ensp;${cin.desc||''}&ensp;&middot;&ensp;<strong style="color:var(--acc)">${cin.nh} Nh</strong>`;
+  }else{nhEl.value='';info.innerHTML='';}
+}
+
+function assignJob(){
+  // BASKET MODE — assign multiple cinnosti sequentially to one worker
+  if(assignMode==='multi'){
+    assignBasket();
+    return;
+  }
+  const cinId=document.getElementById('cin-select').value;
+  const nh=parseFloat(document.getElementById('nh-val').value);
+  const pocet=parseInt(document.getElementById('pocet').value);
+  const startTimeStr=document.getElementById('startTime').value||'06:00';
+  const allowSat=document.getElementById('allow-sat').checked;
+  const allowSun=document.getElementById('allow-sun').checked;
+  const msgEl=document.getElementById('assign-msg');
+  msgEl.innerHTML='';
+
+  if(!cinId){msgEl.innerHTML='<div class="alert alert-err">Vyber činnosť.</div>';return;}
+  if(!nh||nh<=0){msgEl.innerHTML='<div class="alert alert-err">Zadaj platné Nh.</div>';return;}
+  if(!pocet||pocet<1){msgEl.innerHTML='<div class="alert alert-err">Zadaj počet ľudí.</div>';return;}
+  if(!startDateRaw){msgEl.innerHTML='<div class="alert alert-err">Zadaj dátum začiatku.</div>';return;}
+  if(!isWorkday(startDateRaw,allowSat,allowSun)){
+    msgEl.innerHTML='<div class="alert alert-warn">Zvolený dátum je víkend a víkendová práca nie je povolená.</div>';return;
+  }
+
+  const cin=S.cinnosti.find(c=>c.id==cinId);
+  const profWorkers=S.workers.filter(w=>w.prof==cin.prof);
+  if(!profWorkers.length){msgEl.innerHTML=`<div class="alert alert-err">Žiadni pracovníci s profesiou <b>${cin.prof}</b>.</div>`;return;}
+
+  const parts=startTimeStr.split(':').map(Number);
+  const startH=parts[0]+(parts[1]/60);
+
+  // ── Step 1: find workers with most free capacity near startDate ──
+  const workerCapacity=profWorkers.map(w=>{
+    const durationH=w.hours||8;
+    let totalFree=0;
+    for(let i=0;i<30;i++){
+      const dd=addDays(startDateRaw,i);
+      if(!isWorkday(dd,allowSat,allowSun))continue;
+      const ivs=freeIntervalsOnDay(w.id,dd,startH,durationH,startH);
+      totalFree+=ivs.reduce((s,iv)=>s+(iv.to-iv.from),0);
+    }
+    return {w,totalFree};
+  });
+  workerCapacity.sort((a,b)=>b.totalFree-a.totalFree);
+  const avail=workerCapacity.filter(wc=>wc.totalFree>0.0001).map(wc=>wc.w);
+
+  if(avail.length<pocet){
+    const hints=profWorkers.map(w=>{
+      const durationH=w.hours||8;
+      for(let i=0;i<90;i++){
+        const dd=addDays(startDateRaw,i);
+        if(!isWorkday(dd,allowSat,allowSun))continue;
+        const ivs=freeIntervalsOnDay(w.id,dd,startH,durationH,startH);
+        if(ivs.length&&ivs[0].to-ivs[0].from>0.01)
+          return `${w.name} — voľný od <strong>${fmtDT(dd,ivs[0].from)}</strong>`;
+      }
+      return `${w.name} — žiadna dostupnosť`;
+    }).join('<br>');
+    msgEl.innerHTML=`<div class="alert alert-err">Nedostatok voľných pracovníkov [<b>${cin.prof}</b>]: ${avail.length}/${pocet}.</div>
+    <div class="alert alert-info" style="margin-top:6px"><b>Najbližšia dostupnosť:</b><br>${hints}</div>`;
+    return;
+  }
+
+  const chosen=avail.slice(0,pocet);
+
+  // ── Step 2: find each worker's actual start date (first day they're free) ──
+  function workerFirstFreeDate(w){
+    const durationH=w.hours||8;
+    for(let i=0;i<90;i++){
+      const dd=addDays(startDateRaw,i);
+      if(!isWorkday(dd,allowSat,allowSun))continue;
+      const ivs=freeIntervalsOnDay(w.id,dd,startH,durationH,startH);
+      if(ivs.length&&ivs[0].to-ivs[0].from>0.001)return dd;
+    }
+    return startDateRaw;
+  }
+
+  // ── Step 3: iterative balancing to find common end date ──
+  // Algorithm:
+  //   a) Each worker starts on their first free date
+  //   b) Simulate equal split first → find who finishes latest (latestEnd)
+  //   c) For each worker, count how many hours they can work up to latestEnd
+  //   d) Distribute total Nh proportionally to those available hours
+  //   e) Re-simulate → repeat until convergence (max 8 iterations)
+
+  function countFreeHoursBefore(w, beforeDate, beforeH){
+    // Count free hours from worker's first free date up to beforeDate/beforeH
+    const durationH=w.hours||8;
+    const wStart=workerFirstFreeDate(w);
+    let total=0;
+    let d=wStart;
+    for(let i=0;i<200;i++){
+      if(d>beforeDate)break;
+      if(!isWorkday(d,allowSat,allowSun)){d=addDays(d,1);continue;}
+      const upTo=(d===beforeDate)?beforeH:startH+durationH;
+      const fromH=(d===wStart)?startH:startH;
+      const ivs=freeIntervalsOnDay(w.id,d,startH,durationH,fromH);
+      for(const iv of ivs){
+        const segEnd=Math.min(iv.to,upTo);
+        if(segEnd>iv.from)total+=segEnd-iv.from;
+      }
+      if(d===beforeDate)break;
+      d=addDays(d,1);
+    }
+    return total;
+  }
+
+  // Initial equal split simulation
+  let nhForWorker=chosen.map(()=>nh/pocet);
+  let finalSlots=[], latestEnd={date:startDateRaw,h:startH};
+
+  for(let iter=0;iter<6;iter++){
+    finalSlots=[];
+    latestEnd={date:startDateRaw,h:startH};
+
+    chosen.forEach((w,wi)=>{
+      const durationH=w.hours||8;
+      const wStart=workerFirstFreeDate(w);
+      const {slots,endDate,endH}=scheduleWorker(w.id,nhForWorker[wi],wStart,startH,startH,durationH,allowSat,allowSun);
+      finalSlots.push({w,slots,endDate,endH,wStart});
+      if(endDate>latestEnd.date||(endDate===latestEnd.date&&endH>latestEnd.h)){
+        latestEnd={date:endDate,h:endH};
+      }
+    });
+
+    // Rebalance: give each worker Nh proportional to how much they can work before latestEnd
+    const freeHours=chosen.map(w=>Math.max(0.001,countFreeHoursBefore(w,latestEnd.date,latestEnd.h)));
+    const totalFreeH=freeHours.reduce((s,h)=>s+h,0);
+    const newNh=chosen.map((_,wi)=>nh*(freeHours[wi]/totalFreeH));
+
+    // Check convergence
+    const maxDiff=newNh.reduce((mx,v,i)=>Math.max(mx,Math.abs(v-nhForWorker[i])),0);
+    nhForWorker=newNh;
+    if(maxDiff<0.05)break; // converged
+  }
+
+  // ── Step 4: build final schedule with converged Nh values ──
+  let allSlots=[];
+  finalSlots.forEach(({w,wStart},wi)=>{
+    const durationH=w.hours||8;
+    const {slots}=scheduleWorker(w.id,nhForWorker[wi],wStart,startH,startH,durationH,allowSat,allowSun);
+    allSlots=allSlots.concat(slots);
+  });
+
+  const uniqueDays=new Set(allSlots.map(s=>s.date)).size;
+  const nhPerWorkerDisplay=nhForWorker.map(v=>v.toFixed(1));
+
+  S.jobs.unshift({
+    id:S.nextJobId++,
+    cinId,cid:cin.cid,cinName:cin.name,desc:cin.desc||'',prof:cin.prof,vp:cin.vp||'',
+    nh,pocet,startDate:startDateRaw,startH,
+    endDate:latestEnd.date,endH:latestEnd.h,
+    nhPerWorker:nh/pocet, // nominal
+    nhPerWorkerActual:nhForWorker, // actual per worker
+    workdays:uniqueDays,
+    workerIds:chosen.map(w=>w.id),
+    workerNames:chosen.map(w=>w.name),
+    workerStarts:finalSlots.map(f=>f.wStart),
+    schedule:allSlots,
+    allowSat,allowSun,
+    done:false,
+  });
+  save();renderAll();
+
+  const workerDetail=chosen.map((w,i)=>
+    `${w.name}: od ${fmtDate(finalSlots[i].wStart)}, ${nhForWorker[i].toFixed(1)} Nh`
+  ).join('<br>');
+
+  msgEl.innerHTML=`<div class="alert alert-ok">
+    ✓ Priradení s vyrovnanou záťažou:<br>
+    <span style="opacity:0.85">${workerDetail}</span><br>
+    Spoločný koniec: <strong>${fmtDT(latestEnd.date,latestEnd.h)}</strong> · ${uniqueDays} prac. dní
+  </div>`;
+}
+
+function assignBasket(){
+  const msgEl=document.getElementById('assign-msg');
+  msgEl.innerHTML='';
+
+  if(!basket.length){msgEl.innerHTML='<div class="alert alert-err">Balíček je prázdny. Pridaj činnosti.</div>';return;}
+
+  const startDateRaw=document.getElementById('startDate').value;
+  const startTimeStr=document.getElementById('startTime').value||'06:00';
+  const allowSat=document.getElementById('allow-sat').checked;
+  const allowSun=document.getElementById('allow-sun').checked;
+
+  if(!startDateRaw){msgEl.innerHTML='<div class="alert alert-err">Zadaj dátum začiatku.</div>';return;}
+  if(!isWorkday(startDateRaw,allowSat,allowSun)){msgEl.innerHTML='<div class="alert alert-warn">Zvolený dátum je víkend.</div>';return;}
+
+  const parts=startTimeStr.split(':').map(Number);
+  const startH=parts[0]+(parts[1]/60);
+
+  // All cinnosti in basket must have same profesia
+  const profs=[...new Set(basket.map(b=>b.prof))];
+  if(profs.length>1){
+    msgEl.innerHTML='<div class="alert alert-warn">Činnosti v balíčku majú rôzne profesie ('+profs.join(', ')+').<br>Balíček musí byť pre jednu profesiu.</div>';return;
+  }
+  const prof=profs[0];
+  const totalNh=basket.reduce((s,b)=>s+b.nh,0);
+
+  // Find best available worker with that profesia
+  const profWorkers=S.workers.filter(w=>w.prof===prof);
+  if(!profWorkers.length){msgEl.innerHTML=`<div class="alert alert-err">Žiadni pracovníci s profesiou <b>${prof}</b>.</div>`;return;}
+
+  // Pick worker with most free capacity
+  const workerCapacity=profWorkers.map(w=>{
+    const dH=w.hours||8;
+    let free=0;
+    for(let i=0;i<30;i++){
+      const dd=addDays(startDateRaw,i);
+      if(!isWorkday(dd,allowSat,allowSun))continue;
+      const ivs=freeIntervalsOnDay(w.id,dd,startH,dH,startH);
+      free+=ivs.reduce((s,iv)=>s+(iv.to-iv.from),0);
+    }
+    return {w,free};
+  });
+  workerCapacity.sort((a,b)=>b.free-a.free);
+  const chosen=workerCapacity[0];
+  if(!chosen||chosen.free<0.1){
+    msgEl.innerHTML=`<div class="alert alert-err">Žiadny voľný pracovník s profesiou <b>${prof}</b> v najbližších 30 dňoch.</div>`;return;
+  }
+  const w=chosen.w;
+  const durationH=w.hours||8;
+
+  // Schedule each cinnosť sequentially — next one starts where previous ended
+  let allSlots=[];
+  let cursor={date:startDateRaw,h:startH};
+  let latestEnd={date:startDateRaw,h:startH};
+  const createdJobs=[];
+
+  for(const b of basket){
+    const {slots,endDate,endH}=scheduleWorker(w.id,b.nh,cursor.date,cursor.h,startH,durationH,allowSat,allowSun);
+    // Temporarily add slots to worker's schedule so next cinnosť sees them as busy
+    allSlots=allSlots.concat(slots);
+    latestEnd={date:endDate,h:endH};
+
+    const job={
+      id:S.nextJobId++,
+      cinId:b.cinId,cid:b.cid,cinName:b.name,desc:'',prof:b.prof,
+      vp:b.vp||'',zostava:b.zostava||'',
+      nh:b.nh,pocet:1,startDate:cursor.date,startH:cursor.h,
+      endDate,endH,nhPerWorker:b.nh,workdays:new Set(slots.map(s=>s.date)).size,
+      workerIds:[w.id],workerNames:[w.name],
+      schedule:slots,allowSat,allowSun,done:false,
+      basketGroup:Date.now(), // mark as part of same basket
+    };
+    S.jobs.unshift(job);
+    createdJobs.push(job);
+
+    // Next cinnosť starts exactly where this one ended
+    cursor={date:endDate,h:endH};
+  }
+
+  basket=[];
+  save();renderAll();
+
+  const names=createdJobs.map(j=>`<span class="chip">${j.cinName}</span>`).join(' ');
+  msgEl.innerHTML=`<div class="alert alert-ok">
+    ✓ Balíček priradený: <strong>${w.name}</strong><br>
+    ${names}<br>
+    Začiatok: <strong>${fmtDT(startDateRaw,startH)}</strong> → Koniec: <strong>${fmtDT(latestEnd.date,latestEnd.h)}</strong><br>
+    ${totalNh.toFixed(1)} Nh celkom · ${createdJobs.length} činností za sebou
+  </div>`;
+  renderBasket();
+}
+
+function markDone(id){const j=S.jobs.find(j=>j.id==id);if(j)j.done=!j.done;save();renderAll();}
+function removeJob(id){if(!confirm('Odstrániť úlohu?'))return;S.jobs=S.jobs.filter(j=>j.id!=id);save();renderAll();}
+function filterJobs(f,el){jobFilter=f;document.querySelectorAll('.fpill').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');renderJobs();}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════
+function renderStats(){
+  const active=S.jobs.filter(j=>!j.done);
+  const totalNh=active.reduce((s,j)=>s+j.nh,0);
+  const busyW=new Set(active.flatMap(j=>j.workerIds)).size;
+  document.getElementById('stats-bar').innerHTML=`
+    <div class="stat-card"><div class="stat-n">${active.length}</div><div class="stat-l">Aktívne úlohy</div></div>
+    <div class="stat-card blue"><div class="stat-n">${S.jobs.filter(j=>j.done).length}</div><div class="stat-l">Splnené</div></div>
+    <div class="stat-card green"><div class="stat-n">${totalNh.toFixed(0)}</div><div class="stat-l">Nh v pláne</div></div>
+    <div class="stat-card purple"><div class="stat-n">${busyW}/${S.workers.length}</div><div class="stat-l">Obsadení</div></div>`;
+  document.getElementById('sb-w').textContent=S.workers.length;
+  document.getElementById('sb-c').textContent=S.cinnosti.length;
+  document.getElementById('sb-j').textContent=active.length;
+}
+
+function renderJobs(){
+  const el=document.getElementById('jobs-list');
+  let jobs=[...S.jobs];
+  if(activeVpFilter)jobs=jobs.filter(j=>!j.vp||j.vp===activeVpFilter);
+  if(jobFilter=='active')jobs=jobs.filter(j=>!j.done);
+  if(jobFilter=='done')jobs=jobs.filter(j=>j.done);
+  if(!jobs.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">◌</div>Žiadne úlohy</div>';return;}
+  el.innerHTML=jobs.map(j=>{
+    // Worker chips — each clickable to remove
+    // Worker chips s časovými úsekmi
+    const allWorkerSegments = (()=>{
+      // Zozbieraj úseky pre každého pracovníka (aktívnych aj odobratých)
+      const segments = [];
+
+      // Odobratí pracovníci — historické úseky
+      (j.pastWorkerIds||[]).forEach((wid,pi)=>{
+        const wname=j.pastWorkerNames&&j.pastWorkerNames[pi]||'?';
+        const until=j.pastWorkerUntil&&j.pastWorkerUntil[parseInt(wid)];
+        const slots=(j.schedule||[]).filter(s=>parseInt(s.wid)===parseInt(wid));
+        if(!slots.length)return;
+        const firstDate=slots.map(s=>s.date).sort()[0];
+        const lastDate=slots.map(s=>s.date).sort().pop();
+        segments.push({wid:parseInt(wid),wname,from:firstDate,to:lastDate,until,past:true});
+      });
+
+      // Aktívni pracovníci
+      j.workerIds.forEach((wid,wi)=>{
+        const wname=j.workerNames[wi]||'?';
+        const slots=(j.schedule||[]).filter(s=>parseInt(s.wid)===parseInt(wid));
+        const firstDate=slots.length?slots.map(s=>s.date).sort()[0]:j.startDate;
+        const lastDate=slots.length?slots.map(s=>s.date).sort().pop():j.endDate;
+        segments.push({wid:parseInt(wid),wname,from:firstDate,to:lastDate,past:false});
+      });
+
+      // Zoraď podľa dátumu začiatku
+      segments.sort((a,b)=>(a.from||'').localeCompare(b.from||''));
+      return segments;
+    })();
+
+    const workerChips = allWorkerSegments.map((seg,si)=>{
+      const arrow = si>0 ? '<span style="color:var(--text3);font-size:11px;margin:0 2px">→</span>' : '';
+      if(seg.past){
+        return `${arrow}<span class="chip" style="opacity:0.6;font-style:italic;background:var(--bg3)" title="Odobratý">
+          ${seg.wname}
+          <span style="font-size:9px;color:var(--text3);margin-left:3px">${fmtShort(seg.from)}–${fmtShort(seg.to)}</span>
+        </span>`;
+      }
+      if(j.done) return `${arrow}<span class="chip">${seg.wname} <span style="font-size:9px;color:var(--text3)">${fmtShort(seg.from)}–${fmtShort(seg.to)}</span></span>`;
+      return `${arrow}<span class="chip" style="display:inline-flex;align-items:center;gap:4px;padding-right:5px">
+        ${seg.wname}
+        <span style="font-size:9px;color:var(--text3)">${fmtShort(seg.from)}–${fmtShort(seg.to)}</span>
+        <span onclick="openRemoveWorkerModal(${j.id},${seg.wid})"
+          style="color:var(--red);font-size:10px;font-weight:700;cursor:pointer;padding:0 2px"
+          title="Odobrať ${seg.wname}">✕</span>
+      </span>`;
+    }).join('');
+
+    // Add worker button — only if not done
+    const addBtn = j.done ? '' :
+      `<button class="btn btn-outline btn-sm" onclick="openAddWorkerModal(${j.id})"
+        style="font-size:10px;padding:3px 8px" title="Pridať pracovníka k úlohe">+ Pracovník</button>`;
+
+    return `
+    <div class="job-card${j.done?' done-card':''}">
+      <div class="job-head">
+        <div style="flex:1">
+          <div class="job-tag-line">
+            ${j.vp?`<span class="job-id-tag" style="color:var(--teal);border-color:rgba(20,184,166,0.3)">${j.vp}</span>`:''}
+            <span class="job-id-tag">${j.cid||j.cinId}</span>
+            <span class="prof-badge pf-${profClass(j.prof)}">${j.prof}</span>
+            ${j.allowSat?'<span style="font-size:10px;color:var(--teal);font-weight:600">So</span>':''}
+            ${j.allowSun?'<span style="font-size:10px;color:var(--purple);font-weight:600">Ne</span>':''}
+          </div>
+          <div class="job-name" style="display:flex;align-items:center;gap:8px">
+            ${j.done?'<s>'+j.cinName+'</s>':j.cinName}
+            ${!j.done&&j.endDate&&j.endDate<todayStr()?'<span style="font-size:10px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);border-radius:5px;padding:1px 6px;font-weight:600">⏰ Po termíne</span>':''}
+            ${!j.done&&j.endDate===todayStr()?'<span style="font-size:10px;background:rgba(240,165,0,0.15);color:var(--acc);border:1px solid rgba(240,165,0,0.3);border-radius:5px;padding:1px 6px;font-weight:600">⚡ Dnes</span>':''}
+          </div>
+          ${j.desc?`<div class="job-desc">${j.desc}</div>`:''}
+        </div>
+        <div class="job-actions">
+          <button class="btn btn-green btn-sm" onclick="markDone(${j.id})">${j.done?'↺ Otvoriť':'✓ Splnená'}</button>
+          <button class="btn btn-danger btn-sm" onclick="removeJob(${j.id})">✕</button>
+        </div>
+      </div>
+      <div class="job-meta">
+        <span class="meta-pill">⏱ ${j.nh} Nh</span>
+        <span class="meta-pill">👤 ${j.pocet}× · ${(j.nhPerWorker||0).toFixed(2)} Nh/os.</span>
+        <span class="meta-pill">📅 ${fmtDate(j.startDate)} ${fmtH(j.startH||6)}</span>
+        <span class="meta-pill">→ ${fmtDate(j.endDate)} ${fmtH(j.endH||0)}</span>
+        <span class="meta-pill">📆 ${j.workdays||'?'} prac. dní</span>
+      </div>
+      <div class="chips-row">${workerChips} ${addBtn}</div>
+      ${!j.done&&j.workerIds.length===0&&(j.nhRemaining>0.01||(j.schedule&&j.schedule.length))?(()=>{
+        const today=todayStr();
+        // Prioritne nhRemaining (uložený pri odobratí), inak vypočítaj
+        const remNh=j.nhRemaining>0.01 ? j.nhRemaining :
+          j.schedule.filter(s=>s.date>=today).reduce((s,x)=>s+(x.endH-x.startH),0);
+        if(remNh<0.01)return '';
+        const lastSlot=j.schedule&&j.schedule.length?j.schedule.reduce((a,b)=>b.date>a.date?b:a,j.schedule[0]):null;
+        return `<div style="margin-top:6px;padding:6px 10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:11px;color:#fca5a5">
+          ⚠ Bez pracovníkov · zostatok <strong>${remNh.toFixed(1)} Nh</strong>${lastSlot?` · posledná práca ${fmtDate(lastSlot.date)}`:''}
+          <button onclick="openAddWorkerModal(${j.id})" class="btn btn-accent btn-sm" style="margin-left:8px;padding:2px 8px;font-size:10px">+ Priradiť</button>
+        </div>`;
+      })():''}
+    </div>`;
+  }).join('');
+}
+
+// VP color palette
+const VP_COLORS=[
+  {bar:'#f0a500',bg:'rgba(240,165,0,0.12)',text:'#f0a500'},    // amber
+  {bar:'#3b82f6',bg:'rgba(59,130,246,0.12)',text:'#93c5fd'},   // blue
+  {bar:'#22c55e',bg:'rgba(34,197,94,0.12)',text:'#86efac'},    // green
+  {bar:'#a855f7',bg:'rgba(168,85,247,0.12)',text:'#d8b4fe'},   // purple
+  {bar:'#ef4444',bg:'rgba(239,68,68,0.12)',text:'#fca5a5'},    // red
+  {bar:'#14b8a6',bg:'rgba(20,184,166,0.12)',text:'#5eead4'},   // teal
+  {bar:'#f97316',bg:'rgba(249,115,22,0.12)',text:'#fdba74'},   // orange
+  {bar:'#ec4899',bg:'rgba(236,72,153,0.12)',text:'#f9a8d4'},   // pink
+];
+
+function vpColor(vp){
+  if(!vp)return VP_COLORS[0];
+  const vpList=S.vpList||[];
+  const idx=vpList.indexOf(vp);
+  return VP_COLORS[Math.max(0,idx)%VP_COLORS.length];
+}
+
+let ganttActiveTab='summary'; // 'summary' or VP id
+
+function renderGantt(){
+  const el=document.getElementById('gantt-content');
+  const allJobs=S.jobs.filter(j=>j.startDate&&j.endDate);
+  if(!allJobs.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">▤</div>Žiadne úlohy</div>';return;}
+
+  // Build date range
+  const fi=document.getElementById('gantt-from').value;
+  const ti=document.getElementById('gantt-to').value;
+  const allD=allJobs.flatMap(j=>[j.startDate,j.endDate]);
+  const minD=fi||allD.reduce((a,b)=>a<b?a:b);
+  const maxD=addDays(ti||allD.reduce((a,b)=>a>b?a:b),1);
+  const dates=[];let d=minD;
+  while(d<=maxD){dates.push(d);d=addDays(d,1);}
+  if(dates.length>120){el.innerHTML='<div class="alert alert-warn">Rozsah príliš veľký (max 120 dní).</div>';return;}
+
+  // Build schedule map
+  const schedMap={};
+  S.jobs.forEach(j=>{
+    if(!j.schedule)return;
+    j.schedule.forEach(s=>{
+      if(!schedMap[s.date])schedMap[s.date]={};
+      if(!schedMap[s.date][j.id])schedMap[s.date][j.id]=[];
+      schedMap[s.date][j.id].push(s);
+    });
+  });
+
+  // Dnešný dátum pre zvýraznenie stĺpca
+  const todayD=todayStr();
+
+  const vpList=S.vpList&&S.vpList.length?S.vpList:[''];
+  const hasVp=S.vpList&&S.vpList.length>0;
+
+  // Tabs
+  let tabsHtml=`<div style="display:flex;gap:3px;margin-bottom:12px;flex-wrap:wrap">
+    <button onclick="ganttActiveTab='summary';renderGantt()" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${ganttActiveTab==='summary'?'var(--acc)':'var(--border)'};background:${ganttActiveTab==='summary'?'rgba(240,165,0,0.15)':'transparent'};color:${ganttActiveTab==='summary'?'var(--acc)':'var(--text3)'};font-family:inherit">
+      Sumár
+    </button>`;
+  if(hasVp){
+    vpList.forEach(vp=>{
+      const c=vpColor(vp);
+      const active=ganttActiveTab===vp;
+      tabsHtml+=`<button onclick="ganttActiveTab='${vp}';renderGantt()" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${active?c.bar:'var(--border)'};background:${active?c.bg:'transparent'};color:${active?c.bar:'var(--text3)'};font-family:inherit">
+        ${vp}
+      </button>`;
+    });
+  }
+  tabsHtml+='</div>';
+
+  // Legend
+  let legendHtml='<div style="display:flex;gap:10px;font-size:11px;margin-bottom:10px;color:var(--text3);flex-wrap:wrap">';
+  if(hasVp&&ganttActiveTab==='summary'){
+    vpList.forEach(vp=>{
+      const c=vpColor(vp);
+      legendHtml+=`<span><span style="display:inline-block;width:10px;height:10px;background:${c.bar};border-radius:2px;vertical-align:middle;opacity:.85"></span> ${vp}</span>`;
+    });
+  } else {
+    legendHtml+=`<span><span style="display:inline-block;width:10px;height:10px;background:var(--acc);border-radius:2px;vertical-align:middle"></span> Pracovný deň</span>`;
+  }
+  legendHtml+=`<span><span style="display:inline-block;width:10px;height:10px;background:#555;border-radius:2px;vertical-align:middle"></span> Splnená</span>
+    <span style="color:var(--text3)">Šírka = podiel dňa</span></div>`;
+
+  // Filter jobs for active tab
+  const jobs=ganttActiveTab==='summary'?allJobs:allJobs.filter(j=>j.vp===ganttActiveTab);
+
+  if(!jobs.length){
+    el.innerHTML=tabsHtml+legendHtml+'<div class="empty-state"><div class="empty-icon">▤</div>Žiadne úlohy pre tento VP</div>';
+    return;
+  }
+
+  // In summary mode, group by VP
+  const DAY=['Ne','Po','Ut','St','Št','Pi','So'];
+
+  // Build header row — zvýrazni dnešný deň
+  function buildHeader(){
+    let h=`<div class="gantt-header-row"><div class="g-label">${ganttActiveTab==='summary'?'VP / Úloha':'Úloha / Pracovník'}</div><div class="g-days">`;
+    dates.forEach(dt=>{
+      const s=isSat(dt),u=isSun(dt);
+      const isToday=dt===todayD;
+      const cls=s?'g-dh sat-work':u?'g-dh sun-work':'g-dh';
+      const todayStyle=isToday?'background:rgba(239,68,68,0.25);color:#fca5a5;font-weight:700;border-bottom:2px solid #ef4444;':'';
+      h+=`<div class="${cls}" style="${todayStyle}" title="${fmtDate(dt)}${isToday?' — Dnes':''}">${new Date(dt+'T12:00').getDate()}<br>${DAY[dow(dt)]}</div>`;
+    });
+    h+='</div></div>';
+    return h;
+  }
+
+  // Build a single job row
+  function buildJobRow(j, indent=false, colorOverride=null){
+    const c=colorOverride||(j.vp?vpColor(j.vp):null);
+    const barColor=j.done?'#555':(c?c.bar:null);
+    let h=`<div class="g-row${indent?' g-sub-row':''}" style="${indent?'':'background:rgba(255,255,255,0.015)'}">
+      <div class="g-name" style="${indent?'padding-left:20px;font-size:10px;color:var(--text3)':'font-weight:600;color:var(--text)'}">
+        <span class="prof-badge pf-${profClass(j.prof)}" style="${c?`background:${c.bg};color:${c.text};border-color:${c.bar}40`:''}">${j.prof}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis" title="${j.cinName}">${j.cinName.slice(0,indent?22:20)}</span>
+      </div>
+      <div class="g-cells">`;
+    dates.forEach(dt=>{
+      const sat=isSat(dt),sun=isSun(dt);
+      const cls='g-cell'+(sat?' sat-work':sun?' sun-work':'');
+      const daySlots=(schedMap[dt]||{})[j.id]||[];
+      const totalH=daySlots.reduce((s,x)=>s+(x.endH-x.startH),0);
+      const workerMaxH=j.workerIds&&j.workerIds.length?Math.max(...j.workerIds.map(wid=>S.workers.find(w=>w.id===wid)?.hours||8)):8;
+      const frac=Math.min(1,totalH/workerMaxH);
+      const bColor=j.done?'#555':sat?'var(--teal)':sun?'var(--purple)':(barColor||'var(--acc)');
+      h+=`<div class="${cls}" title="${fmtDate(dt)}: ${totalH.toFixed(1)}h">
+        ${frac>0.01?`<div class="g-bar" style="width:${Math.round(frac*100)}%;background:${bColor};opacity:${indent?0.6:0.85}"></div>`:''}
+      </div>`;
+    });
+    h+='</div></div>';
+    return h;
+  }
+
+  // Build worker sub-row
+  function buildWorkerRow(j,wid,colorOverride=null){
+    const w=S.workers.find(x=>x.id===wid);
+    if(!w)return'';
+    const c=colorOverride||(j.vp?vpColor(j.vp):null);
+    const barColor=j.done?'#555':(c?c.bar:null);
+    let h=`<div class="g-row g-sub-row">
+      <div class="g-name" style="padding-left:24px;font-size:10px;color:var(--text3)">
+        <span class="avatar av-${profClass(w.prof)}" style="width:16px;height:16px;font-size:7px;flex-shrink:0">${initials(w.name)}</span>
+        ${w.name} <span style="color:var(--acc);margin-left:3px">${w.hours}h</span>
+      </div>
+      <div class="g-cells">`;
+    dates.forEach(dt=>{
+      const sat=isSat(dt),sun=isSun(dt);
+      const cls='g-cell'+(sat?' sat-work':sun?' sun-work':'');
+      const wSlots=((schedMap[dt]||{})[j.id]||[]).filter(s=>s.wid===wid);
+      const h2=wSlots.reduce((s,x)=>s+(x.endH-x.startH),0);
+      const frac=Math.min(1,h2/(w.hours||8));
+      const bColor=j.done?'#555':sat?'var(--teal)':sun?'var(--purple)':(barColor||'var(--acc)');
+      const tip=wSlots.map(s=>`${fmtH(s.startH)}-${fmtH(s.endH)}`).join(', ');
+      h+=`<div class="${cls}" title="${fmtDate(dt)}: ${tip||'voľný'}">
+        ${frac>0.01?`<div class="g-bar" style="width:${Math.round(frac*100)}%;background:${bColor};opacity:0.55;height:12px"></div>`:''}
+      </div>`;
+    });
+    h+='</div></div>';
+    return h;
+  }
+
+  let gridHtml='<div style="min-width:500px">';
+  gridHtml+=buildHeader();
+
+  if(ganttActiveTab==='summary'&&hasVp){
+    // Group by VP, show VP header + collapsed job rows
+    vpList.forEach(vp=>{
+      const vpJobs=jobs.filter(j=>j.vp===vp);
+      if(!vpJobs.length)return;
+      const c=vpColor(vp);
+      // VP header row - spanning bar showing overall VP timeline
+      const vpStart=vpJobs.map(j=>j.startDate).reduce((a,b)=>a<b?a:b);
+      const vpEnd=vpJobs.map(j=>j.endDate).reduce((a,b)=>a>b?a:b);
+      gridHtml+=`<div class="g-row" style="background:${c.bg};border-left:3px solid ${c.bar}">
+        <div class="g-name" style="font-weight:700;color:${c.bar};font-size:12px;font-family:var(--font-mono)">
+          ${vp} <span style="font-size:10px;font-weight:400;color:var(--text3)">(${vpJobs.length} úloh)</span>
+        </div>
+        <div class="g-cells">`;
+      dates.forEach(dt=>{
+        const sat=isSat(dt),sun=isSun(dt);
+        const cls='g-cell'+(sat?' sat-work':sun?' sun-work':'');
+        const inRange=dt>=vpStart&&dt<=vpEnd;
+        // Check if any job has work on this day
+        const hasWork=vpJobs.some(j=>((schedMap[dt]||{})[j.id]||[]).length>0);
+        gridHtml+=`<div class="${cls}" title="${vp} ${fmtDate(dt)}">
+          ${hasWork?`<div class="g-bar" style="width:100%;background:${c.bar};opacity:0.3;height:22px;border-radius:0"></div>`:(inRange?`<div style="width:100%;height:22px;background:${c.bar};opacity:0.07"></div>`:'')}
+        </div>`;
+      });
+      gridHtml+='</div></div>';
+      // Individual job rows under VP
+      vpJobs.forEach(j=>{
+        gridHtml+=buildJobRow(j,true,c);
+      });
+    });
+  } else {
+    // Single VP or no VP — show jobs with worker sub-rows
+    jobs.forEach(j=>{
+      const c=j.vp?vpColor(j.vp):null;
+      gridHtml+=buildJobRow(j,false,c);
+      j.workerIds&&j.workerIds.forEach(wid=>{
+        gridHtml+=buildWorkerRow(j,wid,c);
+      });
+      // Odobratí pracovníci — šedé historické sloty
+      (j.pastWorkerIds||[]).forEach((wid,pi)=>{
+        const pastName=(j.pastWorkerNames&&j.pastWorkerNames[pi])||'?';
+        const until=j.pastWorkerUntil&&j.pastWorkerUntil[wid];
+        const pw=S.workers.find(x=>parseInt(x.id)===parseInt(wid));
+        let h=`<div class="g-row g-sub-row" style="opacity:0.5">
+          <div class="g-name" style="padding-left:20px;font-size:10px;color:var(--text3);font-style:italic">
+            <span style="font-size:9px;margin-right:3px">✓</span>${pastName}${until?` <span style="font-size:8px">do ${fmtDate(until)}</span>`:''}
+          </div>
+          <div class="g-cells">`;
+        dates.forEach(dt=>{
+          const sat=isSat(dt),sun=isSun(dt);
+          const cls='g-cell'+(sat?' sat-work':sun?' sun-work':'');
+          const wSlots=((schedMap[dt]||{})[j.id]||[]).filter(s=>parseInt(s.wid)===parseInt(wid));
+          const hh=wSlots.reduce((s,x)=>s+(x.endH-x.startH),0);
+          const maxH=pw?pw.hours||8:8;
+          const frac=Math.min(1,hh/maxH);
+          const tip=wSlots.map(s=>`${fmtH(s.startH)}-${fmtH(s.endH)}`).join(', ');
+          h+=`<div class="${cls}" title="${pastName} ${fmtDate(dt)}: ${tip||'—'}">
+            ${frac>0.01?`<div class="g-bar" style="width:${Math.round(frac*100)}%;background:#888;opacity:0.55;height:10px;margin-top:3px"></div>`:''}
+          </div>`;
+        });
+        h+='</div></div>';
+        gridHtml+=h;
+      });
+    });
+  }
+
+  gridHtml+='</div>';
+  el.innerHTML=tabsHtml+legendHtml+'<div style="overflow-x:auto">'+gridHtml.slice(gridHtml.indexOf('<div style="min-width:500px">'))+'</div>';
+
+  // Auto-refresh každých 5 minút
+  clearTimeout(window._ganttTimer);
+  window._ganttTimer=setTimeout(()=>renderGantt(),5*60*1000);
+}
+
+
+// Currently selected zostava in cinnosti tab
+let cinTabZostava='';
+
+function renderZostavaPicker(){
+  const el=document.getElementById('zostava-picker');
+  const statsEl=document.getElementById('zostava-nh-stats');
+  if(!el)return;
+  const zostavy=[...new Set(S.cinnosti.map(c=>c.zostava||'').filter(Boolean))].sort();
+  if(!zostavy.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px 0">Žiadne zostavy.<br>Importuj činnosti z XLSX.</div>';
+    if(statsEl)statsEl.innerHTML='';
+    return;
+  }
+  el.innerHTML=zostavy.map(z=>{
+    const cnt=S.cinnosti.filter(c=>c.zostava===z).length;
+    const active=cinTabZostava===z;
+    return `<div onclick="selectCinTabZostava('${z}')" style="
+      display:flex;justify-content:space-between;align-items:center;
+      padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;
+      background:${active?'rgba(240,165,0,0.12)':'transparent'};
+      border:1px solid ${active?'rgba(240,165,0,0.4)':'transparent'};
+      transition:all 0.15s">
+      <span style="font-size:13px;font-weight:${active?'700':'500'};color:${active?'var(--acc)':'var(--text2)'}">${z}</span>
+      <span style="font-size:10px;font-family:var(--font-mono);color:var(--text3)">${cnt}</span>
+    </div>`;
+  }).join('');
+
+  if(statsEl){
+    statsEl.innerHTML=zostavy.map(z=>{
+      const items=S.cinnosti.filter(c=>c.zostava===z);
+      const totalNh=items.reduce((s,c)=>s+(c.nh||0),0);
+      return `<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+        <span style="color:var(--text3)">${z}</span>
+        <span style="font-family:var(--font-mono);color:var(--acc)">${totalNh.toFixed(0)} Nh</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+function selectCinTabZostava(zostava){
+  cinTabZostava=zostava;
+  renderZostavaPicker();
+  renderCinnosti();
+}
+
+function renderCinnosti(){
+  const el=document.getElementById('cin-table');
+  if(!el)return;
+
+  renderZostavaPicker();
+
+  const filterEtapa=(document.getElementById('cin-filter-etapa')||{}).value||'';
+  const search=((document.getElementById('cin-search')||{}).value||'').toLowerCase().trim();
+
+  // Update etapa filter for current zostava
+  const eSel=document.getElementById('cin-filter-etapa');
+  if(eSel){
+    const curE=eSel.value;
+    const etapy=[...new Set(S.cinnosti.filter(c=>!cinTabZostava||(c.zostava||'')==cinTabZostava).map(c=>c.etapa||'').filter(Boolean))].sort();
+    eSel.innerHTML='<option value="">Všetky etapy</option>'+etapy.map(e=>`<option value="${e}" ${e===curE?'selected':''}>${e}</option>`).join('');
+  }
+
+  if(!cinTabZostava){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">◈</div>Vyber zostavu vľavo</div>';
+    document.getElementById('cin-tab-title').textContent='Vyber zostavu';
+    document.getElementById('cin-count').textContent='';
+    return;
+  }
+
+  let filtered=S.cinnosti.filter(c=>(c.zostava||'')==cinTabZostava);
+  if(filterEtapa) filtered=filtered.filter(c=>(c.etapa||'')==filterEtapa);
+  if(search) filtered=filtered.filter(c=>
+    (c.name||'').toLowerCase().includes(search)||
+    (c.cid||'').toLowerCase().includes(search)||
+    (c.desc||'').toLowerCase().includes(search)
+  );
+
+  const titleEl=document.getElementById('cin-tab-title');
+  const countEl=document.getElementById('cin-count');
+  if(titleEl)titleEl.textContent=cinTabZostava;
+  if(countEl)countEl.textContent=`${filtered.length} činností${search||filterEtapa?' (filtrované)':''}`;
+
+  if(!filtered.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">≡</div>Žiadne činnosti pre tento filter</div>';
+    return;
+  }
+
+  // Group by etapa
+  const groups={};
+  filtered.forEach(c=>{const k=c.etapa||'—';if(!groups[k])groups[k]=[];groups[k].push(c);});
+  const etapyKeys=Object.keys(groups).sort();
+
+  let html='';
+  etapyKeys.forEach((etapa,gi)=>{
+    const items=groups[etapa];
+    if(etapyKeys.length>1){
+      html+=`<div style="padding:6px 10px 4px;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text2);background:var(--bg3);border-bottom:1px solid var(--border)${gi>0?';margin-top:4px':''}">
+        ${etapa} <span style="color:var(--text3);font-weight:400">(${items.length})</span>
+      </div>`;
+    }
+    html+=`<table class="tbl"><thead><tr><th>ID kód</th><th>Názov</th><th>Popis</th><th>Profesia</th><th>Nh</th><th></th></tr></thead><tbody>`;
+    html+=items.map(c=>`<tr>
+      <td><span class="job-id-tag">${c.cid||c.id}</span></td>
+      <td style="font-weight:600;color:var(--text)">${c.name}</td>
+      <td style="color:var(--text3);font-size:11px">${c.desc||''}</td>
+      <td><span class="prof-badge pf-${profClass(c.prof)}">${c.prof}</span></td>
+      <td><span class="job-id-tag" style="color:var(--acc)">${c.nh}</span></td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeCin('${c.id}')">✕</button></td>
+    </tr>`).join('');
+    html+='</tbody></table>';
+  });
+  el.innerHTML=html;
+}
+
+function renderWorkers(){
+  const el=document.getElementById('workers-list');
+  document.getElementById('worker-count').textContent=`${S.workers.length} pracovníkov`;
+  if(!S.workers.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">◉</div>Žiadni pracovníci — importuj alebo pridaj manuálne</div>';return;}
+
+  const today=todayStr();
+  const hoursOpts=[7.5,8,9,9.5,10,12];
+
+  el.innerHTML=S.workers.map(w=>{
+    const bj=S.jobs.filter(j=>!j.done&&j.workerIds.includes(w.id));
+    const days7=Array.from({length:7},(_,i)=>addDays(today,i));
+    const DAY=['Ne','Po','Ut','St','Št','Pi','So'];
+
+    const heatmap=days7.map(d=>{
+      // Skontroluj absenciu
+      const absence=(w.absencie||[]).find(a=>a.od<=d&&a.do>=d);
+      if(absence){
+        const icons={'Dovolenka':'D','PN':'P','Iné':'?'};
+        const icon=icons[absence.typ]||'?';
+        const colors={'Dovolenka':'rgba(59,130,246,0.25)','PN':'rgba(239,68,68,0.2)','Iné':'rgba(150,150,150,0.2)'};
+        const bg=colors[absence.typ]||'rgba(150,150,150,0.2)';
+        return `<div title="${fmtDate(d)}: ${absence.typ}${absence.poznamka?' — '+absence.poznamka:''}" style="text-align:center;min-width:28px">
+          <div style="width:26px;height:26px;border-radius:5px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:9px;font-family:var(--font-mono);color:#aaa;font-weight:700">${icon}</div>
+          <div style="font-size:8px;color:var(--text3);margin-top:2px">${DAY[dow(d)]}</div>
+        </div>`;
+      }
+      const slots=getWorkerSlots(w.id).filter(s=>s.date===d);
+      const h=slots.reduce((s,x)=>s+(x.endH-x.startH),0);
+      const max=w.hours||8;
+      const pct=Math.min(1,h/max);
+      let bg=pct===0?'rgba(255,255,255,0.05)':pct>=1?'rgba(239,68,68,0.25)':'rgba(240,165,0,0.2)';
+      let txtClr=pct===0?'var(--text3)':pct>=1?'#fca5a5':'#fcd34d';
+      return `<div title="${fmtDate(d)}: ${h.toFixed(1)}/${max}h" style="text-align:center;min-width:28px">
+        <div style="width:26px;height:26px;border-radius:5px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:9px;font-family:var(--font-mono);color:${txtClr}">${h>0?h.toFixed(1):''}</div>
+        <div style="font-size:8px;color:var(--text3);margin-top:2px">${DAY[dow(d)]}</div>
+      </div>`;
+    }).join('');
+
+    // Aktívne absencie
+    const activeAbsence=(w.absencie||[]).find(a=>a.od<=today&&a.do>=today);
+    const futureAbsences=(w.absencie||[]).filter(a=>a.od>today).sort((a,b)=>a.od.localeCompare(b.od));
+
+    const hoursSelect=`<select onchange="changeWorkerHours(${w.id},this.value)"
+      style="padding:3px 6px;font-size:11px;border-radius:5px;background:var(--bg4);border:1px solid var(--border);color:var(--acc);font-family:var(--font-mono);cursor:pointer"
+      title="Zmeniť pracovnú dobu">
+      ${hoursOpts.map(h=>`<option value="${h}" ${(w.hours||8)==h?'selected':''}>${h}h</option>`).join('')}
+    </select>`;
+
+    const statusBadge=activeAbsence
+      ? `<span class="badge-absence">🏖 ${activeAbsence.typ} do ${fmtDate(activeAbsence.do)}</span>`
+      : bj.length?'<span class="badge-busy">Obsadený</span>':'<span class="badge-free">Voľný</span>';
+
+    const absenceList=(w.absencie||[]).length
+      ? `<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px">${(w.absencie||[]).map((a,ai)=>`
+          <span style="font-size:10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 7px;color:var(--text3)">
+            ${a.typ} ${fmtDate(a.od)}–${fmtDate(a.do)}
+            <span onclick="removeAbsence(${w.id},${ai})" style="color:var(--red);cursor:pointer;margin-left:4px">✕</span>
+          </span>`).join('')}</div>`
+      : '';
+
+    return `<div class="w-row">
+      <div class="avatar av-${profClass(w.prof)}">${initials(w.name)}</div>
+      <div class="w-info">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="w-name">${w.name}</span>
+          <input type="text" value="${w.prof}" onchange="changeWorkerProf(${w.id},this.value)"
+            style="width:52px;padding:2px 5px;font-size:11px;border-radius:5px;background:var(--bg4);border:1px solid var(--border);color:var(--acc);font-family:var(--font-mono);text-align:center;cursor:pointer"
+            title="Kliknúť pre zmenu profesie">
+          ${hoursSelect}
+          ${statusBadge}
+          <button class="btn btn-outline btn-sm" onclick="openAbsenceModal(${w.id})" style="font-size:10px;padding:2px 8px">+ Absencia</button>
+        </div>
+        <div class="w-detail">${bj.length?bj.slice(0,2).map(j=>j.cinName).join(', ')+(bj.length>2?` +${bj.length-2}`:''):'Bez priradenej úlohy'}</div>
+        ${absenceList}
+        <div style="display:flex;gap:4px;margin-top:8px">${heatmap}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="removeWorker(${w.id})" style="margin-top:4px" title="Odstrániť pracovníka">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function changeWorkerProf(wid, newProf){
+  const w=S.workers.find(x=>parseInt(x.id)===parseInt(wid));
+  if(!w)return;
+  newProf=newProf.trim();
+  if(!newProf)return;
+  w.prof=newProf;
+  save();renderAll();
+}
+
+function changeWorkerHours(wid, newHours){
+  const w=S.workers.find(x=>x.id===wid);
+  if(!w)return;
+  const old=w.hours||8;
+  w.hours=parseFloat(newHours);
+  save();
+  // Warn if worker has active jobs
+  const bj=S.jobs.filter(j=>!j.done&&j.workerIds.includes(wid));
+  if(bj.length){
+    document.getElementById('assign-msg').innerHTML=`<div class="alert alert-warn">
+      ⚠ <strong>${w.name}</strong>: pracovná doba zmenená z ${old}h na ${w.hours}h.<br>
+      Má ${bj.length} aktívnych úloh — ich časové bloky zostávajú zachované, ale nové priradenia budú počítať s ${w.hours}h/deň.
+    </div>`;
+    nav('plan', document.querySelector('.nav-item'));
+  }
+  renderWorkers();
+}
+
+function clearAllWorkers(){
+  if(!confirm(`Vymazať všetkých ${S.workers.length} pracovníkov?`))return;
+  S.workers=[];
+  S.nextWorkerId=1;
+  save();renderAll();
+}
+
+function clearCinZostava(){
+  if(!cinTabZostava){alert('Vyber zostavu vľavo.');return;}
+  const cnt=S.cinnosti.filter(c=>c.zostava===cinTabZostava).length;
+  if(!confirm(`Vymazať všetkých ${cnt} činností zostavy "${cinTabZostava}"?`))return;
+  S.cinnosti=S.cinnosti.filter(c=>c.zostava!==cinTabZostava);
+  // Remove from vpList if no more cinnosti for that vp+zostava
+  cinTabZostava='';
+  save();renderAll();
+}
+
+function clearAllCin(){
+  if(!confirm(`Vymazať VŠETKY činnosti (${S.cinnosti.length})? Toto sa nedá vrátiť.`))return;
+  S.cinnosti=[];
+  S.vpList=[];
+  S.nextCinId=1;
+  cinTabZostava='';
+  save();renderAll();
+}
+
+
+function renderCinSelect(){
+  const zSel=document.getElementById('plan-zostava-select');
+  if(!zSel)return;
+  const curZ=zSel.value;
+  const hasVp=S.vpList&&S.vpList.length>0;
+
+  if(hasVp){
+    const vp=activeVpFilter;
+    const src=vp?S.cinnosti.filter(c=>c.vp===vp):S.cinnosti;
+    const zostavy=[...new Set(src.map(c=>c.zostava||'').filter(Boolean))].sort();
+    zSel.innerHTML='<option value="">— zostava —</option>';
+    zostavy.forEach(z=>{
+      const cnt=src.filter(c=>c.zostava===z).length;
+      zSel.innerHTML+=`<option value="${z}" ${z===curZ?'selected':''}>${z} (${cnt})</option>`;
+    });
+  } else {
+    const zostavy=[...new Set(S.cinnosti.map(c=>c.zostava||'').filter(Boolean))].sort();
+    zSel.innerHTML='<option value="">— zostava —</option>';
+    zostavy.forEach(z=>{
+      zSel.innerHTML+=`<option value="${z}" ${z===curZ?'selected':''}>${z}</option>`;
+    });
+  }
+
+  if(curZ) onZostavaChange();
+  else{
+    const profSel=document.getElementById('plan-prof-select');
+    const cinSel=document.getElementById('cin-select');
+    if(profSel){profSel.innerHTML='<option value="">— profesia —</option>';profSel.disabled=true;}
+    if(cinSel){cinSel.disabled=true;cinSel.innerHTML='<option value="">— najprv zostava —</option>';}
+  }
+}
+
+function onZostavaChange(){
+  const zostava=document.getElementById('plan-zostava-select').value;
+  const profSel=document.getElementById('plan-prof-select');
+  const cinSel=document.getElementById('cin-select');
+  const infoEl=document.getElementById('cin-info');
+
+  // Reset downstream
+  profSel.innerHTML='<option value="">— profesia —</option>';
+  cinSel.innerHTML='<option value="">— najprv profesia —</option>';
+  cinSel.disabled=true;
+  if(infoEl)infoEl.innerHTML='';
+
+  if(!zostava){
+    profSel.disabled=true;
+    return;
+  }
+  profSel.disabled=false;
+
+  const vp=activeVpFilter;
+  const src=vp?S.cinnosti.filter(c=>c.vp===vp):S.cinnosti;
+  const items=src.filter(c=>(c.zostava||'')==zostava);
+
+  // Collect unique profesie with counts (excluding already planned)
+  const usedCinIds=new Set(S.jobs.map(j=>j.cinId));
+  const available=items.filter(c=>!usedCinIds.has(c.id));
+
+  const profMap={};
+  available.forEach(c=>{
+    const p=c.prof||'?';
+    if(!profMap[p])profMap[p]={total:0};
+    profMap[p].total++;
+  });
+
+  const profKeys=Object.keys(profMap).sort();
+  if(!profKeys.length){
+    profSel.innerHTML='<option value="">— všetky naplánované ✓ —</option>';
+    profSel.disabled=true;
+    return;
+  }
+
+  profKeys.forEach(p=>{
+    profSel.innerHTML+=`<option value="${p}">${p} (${profMap[p].total} činn.)</option>`;
+  });
+
+  // Auto-select if only one profesia
+  if(profKeys.length===1){
+    profSel.value=profKeys[0];
+    onProfChange();
+  }
+
+  if(infoEl) infoEl.innerHTML=`<span style="color:var(--text3)">Zostava <strong style="color:var(--acc)">${zostava}</strong> — ${profKeys.length} profesi${profKeys.length===1?'a':'í'} · ${available.length} voľných činností</span>`;
+}
+
+function onProfChange(){
+  const zostava=document.getElementById('plan-zostava-select').value;
+  const prof=document.getElementById('plan-prof-select').value;
+  const cinSel=document.getElementById('cin-select');
+  const infoEl=document.getElementById('cin-info');
+
+  cinSel.innerHTML='<option value="">— vyber činnosť —</option>';
+  if(!prof||!zostava){cinSel.disabled=true;return;}
+  cinSel.disabled=false;
+
+  const vp=activeVpFilter;
+  const src=vp?S.cinnosti.filter(c=>c.vp===vp):S.cinnosti;
+  const usedCinIds=new Set(S.jobs.map(j=>j.cinId));
+
+  const allItems=src.filter(c=>(c.zostava||'')==zostava&&(c.prof||'')==prof);
+  // Filter out already in basket too
+  const inBasket=new Set(basket.map(b=>b.cinId));
+  const available=allItems.filter(c=>!usedCinIds.has(c.id)&&!inBasket.has(c.id));
+  const plannedCount=allItems.length-available.length;
+
+  // Group by etapa
+  const etapy=[...new Set(available.map(c=>c.etapa||'').filter(Boolean))].sort();
+
+  function addOpt(c){
+    const desc=c.desc?` — ${c.desc}`:'';
+    const vpTag=(!activeVpFilter&&c.vp)?`[${c.vp}] `:'';
+    cinSel.innerHTML+=`<option value="${c.id}">${vpTag}${c.cid||c.id} — ${c.name}${desc} (${c.nh} Nh)</option>`;
+  }
+
+  if(etapy.length>1){
+    etapy.forEach(etapa=>{
+      const etItems=available.filter(c=>(c.etapa||'')==etapa);
+      if(!etItems.length)return;
+      cinSel.innerHTML+=`<optgroup label="${etapa}">`;
+      etItems.forEach(addOpt);
+      cinSel.innerHTML+=`</optgroup>`;
+    });
+    available.filter(c=>!c.etapa).forEach(addOpt);
+  } else {
+    available.forEach(addOpt);
+  }
+
+  if(!available.length){
+    cinSel.innerHTML='<option value="">— všetky naplánované ✓ —</option>';
+    cinSel.disabled=true;
+  }
+
+  if(infoEl){
+    const planned=plannedCount>0?` · <span style="color:var(--green)">✓ ${plannedCount} naplánovaných</span>`:'';
+    infoEl.innerHTML=`<span style="color:var(--text3)">
+      <span class="prof-badge pf-${profClass(prof)}">${prof}</span>&ensp;
+      ${available.length} voľných${planned}
+    </span>`;
+  }
+}
+
+function vpLabel(n){return 'VP-'+String(n).padStart(3,'0');}
+
+function updateVpPreview(){
+  const n=parseInt(document.getElementById('import-vp-count')?.value)||1;
+  const s=document.getElementById('import-vp-preview');
+  const e=document.getElementById('import-vp-preview-end');
+  if(s)s.textContent=vpLabel(1);
+  if(e)e.textContent=vpLabel(n);
+}
+
+function renderVpManager(){
+  const el=document.getElementById('vp-manager');
+  if(!el)return;
+  if(!S.vpList||!S.vpList.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--text3)">Žiadne VP. Importuj činnosti s počtom kusov > 1.</div>';
+    return;
+  }
+  el.innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      ${S.vpList.map(vp=>`
+        <div style="display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 10px">
+          <span style="font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--acc)">${vp}</span>
+          <span style="font-size:10px;color:var(--text3)">${S.cinnosti.filter(c=>c.vp===vp).length} činn.</span>
+          <button onclick="removeVp('${vp}')" class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px">✕</button>
+        </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+      <div class="field" style="max-width:140px">
+        <label>Pridať ďalšie kusy</label>
+        <input type="number" id="vp-add-count" min="1" max="99" value="1" placeholder="počet">
+      </div>
+      <button class="btn btn-accent btn-sm" onclick="addMoreVp()">+ Pridať VP</button>
+    </div>`;
+}
+
+function renderVpFilterPills(){
+  const el=document.getElementById('vp-filter-pills');
+  if(!el)return;
+  if(!S.vpList||!S.vpList.length){el.innerHTML='<span style="font-size:11px;color:var(--text3)">—</span>';return;}
+  el.innerHTML=['<button class="fpill active" id="vp-pill-all" onclick="setVpFilter(null,this)">Všetky</button>',
+    ...S.vpList.map(vp=>`<button class="fpill" id="vp-pill-${vp}" onclick="setVpFilter('${vp}',this)">${vp}</button>`)
+  ].join('');
+}
+
+let activeVpFilter=null;
+function setVpFilter(vp,el){
+  activeVpFilter=vp;
+  document.querySelectorAll('#vp-filter-pills .fpill').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderJobs();
+  // Also update zostava dropdown to show only VPs cinnosti
+  renderCinSelect();
+}
+
+function removeVp(vp){
+  if(!confirm(`Odstrániť ${vp} a všetky jeho činnosti a úlohy?`))return;
+  S.cinnosti=S.cinnosti.filter(c=>c.vp!==vp);
+  S.jobs=S.jobs.filter(j=>j.vp!==vp);
+  S.vpList=S.vpList.filter(v=>v!==vp);
+  if(activeVpFilter===vp)activeVpFilter=null;
+  save();renderAll();
+}
+
+function addMoreVp(){
+  const n=parseInt(document.getElementById('vp-add-count')?.value)||1;
+  // Find max existing VP number
+  const existing=S.vpList.map(v=>parseInt(v.replace('VP-',''))||0);
+  const maxN=existing.length?Math.max(...existing):0;
+  // Clone all cinnosti from VP-001 (base template)
+  const baseVp=S.vpList[0];
+  if(!baseVp){alert('Najprv importuj činnosti.');return;}
+  const baseCinnosti=S.cinnosti.filter(c=>c.vp===baseVp);
+  for(let i=1;i<=n;i++){
+    const newVp=vpLabel(maxN+i);
+    if(S.vpList.includes(newVp))continue;
+    S.vpList.push(newVp);
+    baseCinnosti.forEach(c=>{
+      S.cinnosti.push({...c,id:'VP'+S.nextCinId++,vp:newVp});
+    });
+  }
+  save();renderAll();
+}
+
+// ─── ASSIGN MODE & BASKET ────────────────────────────────────────
+let assignMode='single'; // 'single' | 'multi'
+let basket=[]; // [{cinId, cid, name, nh, prof, zostava, vp, etapa}]
+
+function setAssignMode(mode){
+  assignMode=mode;
+  document.getElementById('mode-single').className='btn btn-sm '+(mode==='single'?'btn-accent':'btn-outline');
+  document.getElementById('mode-multi').className='btn btn-sm '+(mode==='multi'?'btn-accent':'btn-outline');
+  document.getElementById('btn-add-basket').style.display=mode==='multi'?'flex':'none';
+  document.getElementById('basket-area').style.display=mode==='multi'?'block':'none';
+  document.getElementById('field-nh').style.display=mode==='single'?'flex':'none';
+  document.getElementById('pocet').closest('.field').style.display=mode==='multi'?'flex':'none';
+  document.getElementById('btn-assign').textContent=mode==='multi'?'Priradiť balíček':'Priradiť ▾';
+  document.getElementById('btn-assign').onclick=mode==='multi'?assignBasket:openAssignModal;
+  if(mode==='single') document.getElementById('pocet').closest('.field').style.display='flex';
+  if(mode==='multi'){
+    document.getElementById('pocet').value=1;
+    document.getElementById('pocet').max=1;
+  } else {
+    document.getElementById('pocet').max=99;
+  }
+  renderBasket();
+}
+
+function addToBasket(){
+  const cinId=document.getElementById('cin-select').value;
+  if(!cinId){document.getElementById('assign-msg').innerHTML='<div class="alert alert-warn">Vyber činnosť.</div>';return;}
+  if(basket.find(b=>b.cinId===cinId)){document.getElementById('assign-msg').innerHTML='<div class="alert alert-warn">Činnosť je už v balíčku.</div>';return;}
+  const cin=S.cinnosti.find(c=>String(c.id)===String(cinId));
+  if(!cin)return;
+  basket.push({cinId,cid:cin.cid,name:cin.name,nh:cin.nh,prof:cin.prof,zostava:cin.zostava||'',vp:cin.vp||'',etapa:cin.etapa||''});
+  document.getElementById('assign-msg').innerHTML='';
+  renderBasket();
+  // Auto-select next available cinnost in same zostava+prof
+  const sel=document.getElementById('cin-select');
+  const opts=[...sel.options].filter(o=>o.value&&!basket.find(b=>b.cinId===o.value));
+  if(opts.length) sel.value=opts[0].value;
+  else sel.value='';
+  onCinChange();
+  onProfChange(); // refresh dropdown to remove added item
+}
+
+function removeFromBasket(cinId){
+  basket=basket.filter(b=>b.cinId!==cinId);
+  renderBasket();
+  onZostavaChange(); // refresh dropdown
+}
+
+function clearBasket(){
+  basket=[];
+  renderBasket();
+  onZostavaChange();
+}
+
+function renderBasket(){
+  const listEl=document.getElementById('basket-list');
+  const emptyEl=document.getElementById('basket-empty');
+  const totalEl=document.getElementById('basket-nh-total');
+  if(!listEl)return;
+  if(!basket.length){
+    if(emptyEl)emptyEl.style.display='inline';
+    listEl.innerHTML='<span id="basket-empty" style="font-size:12px;color:var(--text3)">Prázdny — pridaj činnosti zo zoznamu</span>';
+    if(totalEl)totalEl.textContent='';
+    return;
+  }
+  const totalNh=basket.reduce((s,b)=>s+b.nh,0);
+  if(totalEl)totalEl.textContent=`— ${totalNh.toFixed(1)} Nh celkom`;
+  listEl.innerHTML=basket.map((b,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 8px">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">${i+1}.</span>
+      <span style="font-size:11px;font-weight:600;color:var(--text)">${b.name}</span>
+      <span class="job-id-tag">${b.cid||''}</span>
+      <span style="font-size:10px;color:var(--acc);font-family:var(--font-mono)">${b.nh}Nh</span>
+      <button onclick="removeFromBasket('${b.cinId}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 2px" title="Odstrániť">✕</button>
+    </div>`).join('');
+}
+
+function renderAll(){
+  renderStats();renderJobs();renderCinnosti();renderWorkers();renderCinSelect();renderVpManager();renderVpFilterPills();
+  renderMasters();
+  // Show/hide admin nav
+  const navMasters=document.getElementById('nav-masters');
+  if(navMasters)navMasters.style.display=(currentUser&&currentUser.role==='admin')?'flex':'none';
+  // Show assignment import status
+  const statusEl=document.getElementById('assign-import-status');
+  if(statusEl&&S.cinAssignments){
+    const cnt=Object.keys(S.cinAssignments).length;
+    statusEl.textContent=cnt>0?`✓ Priradenia načítané: ${cnt} činností`:'Žiadne priradenia nenačítané';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NAV + CRUD
+// ═══════════════════════════════════════════════════════════════════
+function nav(tab,el){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(el)el.classList.add('active');
+  document.getElementById('page-title').textContent=PAGES[tab]||tab;
+  if(tab=='gantt')renderGantt();
+}
+function addWorker(){
+  const name=document.getElementById('nw-name').value.trim();
+  const prof=document.getElementById('nw-prof').value.trim();
+  const hours=parseFloat(document.getElementById('nw-hours').value);
+  if(!name||!prof)return;
+  S.workers.push({id:S.nextWorkerId++,name,prof,hours});
+  document.getElementById('nw-name').value='';
+  save();renderAll();
+}
+function removeWorker(id){S.workers=S.workers.filter(w=>w.id!=id);save();renderAll();}
+function addCinnost(){
+  const zostava=document.getElementById('nc-zostava').value.trim();
+  const etapa=document.getElementById('nc-etapa').value.trim();
+  const cid=document.getElementById('nc-cid').value.trim();
+  const name=document.getElementById('nc-name').value.trim();
+  const desc=document.getElementById('nc-desc').value.trim();
+  const prof=document.getElementById('nc-prof').value.trim();
+  const nh=parseFloat(document.getElementById('nc-nh').value);
+  if(!name||!nh)return;
+  S.cinnosti.push({id:'M'+S.nextCinId++,zostava,etapa,cid,name,desc,prof,nh});
+  ['nc-zostava','nc-etapa','nc-cid','nc-name','nc-desc'].forEach(i=>document.getElementById(i).value='');
+  save();renderAll();
+}
+function removeCin(id){S.cinnosti=S.cinnosti.filter(c=>c.id!=id);save();renderAll();}
+
+// ═══════════════════════════════════════════════════════════════════
+// IMPORT
+// ═══════════════════════════════════════════════════════════════════
+function handleDropCin(e){e.preventDefault();document.getElementById('drop-cin').classList.remove('drag');handleFileCin(e.dataTransfer.files[0]);}
+function handleFileCin(file){
+  if(!file)return;
+  const msg=document.getElementById('import-cin-msg');
+  const prev=document.getElementById('import-cin-preview');
+  msg.innerHTML='<div class="alert alert-info">Načítavam všetky hárky...</div>';prev.innerHTML='';
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+      const imported=[];
+      let skipped=0;
+      const sheetStats=[];
+
+      wb.SheetNames.forEach(sheetName=>{
+        const zostava=sheetName.trim();
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:''});
+        let sheetImported=0;
+
+        rows.forEach(row=>{
+          const etapa=String(row[0]||'').trim();
+          const cid=String(row[2]||'').trim();
+          const name=String(row[3]||'').trim();
+          const desc=String(row[4]||'').trim();
+          let prof=String(row[5]||'').trim().split(/[\s+]/)[0].replace(/\D/g,'');
+          const nhRaw=parseFloat(String(row[12]||'').replace(',','.'));
+          if(!cid||!name||isNaN(nhRaw)||nhRaw<=0){skipped++;return;}
+          if(S.cinnosti.some(c=>c.cid==cid&&c.zostava==zostava)){skipped++;return;}
+          if(prof.length<3)prof=String(row[5]||'').trim();
+          imported.push({id:'IMP'+S.nextCinId++,zostava,etapa,cid,name,desc,prof,nh:nhRaw});
+          sheetImported++;
+        });
+        sheetStats.push({zostava,count:sheetImported});
+      });
+
+      if(!imported.length){msg.innerHTML='<div class="alert alert-err">Nenašli sa platné riadky.</div>';return;}
+
+      // Create VP copies
+      const vpCount=parseInt(document.getElementById('import-vp-count')?.value)||1;
+      const allImported=[];
+      if(!S.vpList)S.vpList=[];
+
+      for(let vi=1;vi<=vpCount;vi++){
+        const vp=vpLabel(vi);
+        if(!S.vpList.includes(vp))S.vpList.push(vp);
+        imported.forEach(c=>{
+          // Check duplicate per vp+cid+zostava
+          if(S.cinnosti.some(x=>x.cid===c.cid&&x.zostava===c.zostava&&x.vp===vp))return;
+          allImported.push({...c,id:'IMP'+S.nextCinId++,vp});
+        });
+      }
+
+      window._impCin=allImported;
+      window._impVpList=S.vpList.slice(); // save current vpList state for confirm
+
+      const statsHtml=sheetStats.map(s=>`<span class="prof-badge pf-other">${s.zostava}: ${s.count}</span>`).join(' ');
+      const vpInfo=vpCount>1?` × <b>${vpCount} VP</b> (${vpLabel(1)}–${vpLabel(vpCount)})`:'';
+      msg.innerHTML=`<div class="alert alert-ok">Nájdených <b>${imported.length}</b> činností z ${wb.SheetNames.length} hárkov${vpInfo} = <b>${allImported.length}</b> záznamov celkom. Preskočených ${skipped}.<br>${statsHtml}</div>`;
+
+      // Preview grouped by zostava
+      const previewGroups={};
+      imported.forEach(c=>{if(!previewGroups[c.zostava])previewGroups[c.zostava]=[];previewGroups[c.zostava].push(c);});
+      let previewHtml='<div style="margin-top:10px">';
+      Object.keys(previewGroups).forEach(zostava=>{
+        const items=previewGroups[zostava];
+        previewHtml+=`<div style="margin-bottom:8px">
+          <div style="font-size:11px;font-weight:700;color:var(--acc);padding:4px 0">${zostava} (${items.length} činností)</div>
+          <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Etapa</th><th>ID</th><th>Názov</th><th>Profesia</th><th>Nh</th></tr></thead>
+          <tbody>${items.slice(0,5).map(c=>`<tr>
+            <td style="color:var(--text3);font-size:10px">${c.etapa||''}</td>
+            <td><span class="job-id-tag">${c.cid}</span></td>
+            <td>${c.name}</td>
+            <td><span class="prof-badge pf-${profClass(c.prof)}">${c.prof}</span></td>
+            <td style="color:var(--acc);font-family:var(--font-mono)">${c.nh}</td>
+          </tr>`).join('')}
+          ${items.length>5?`<tr><td colspan="5" style="text-align:center;color:var(--text3)">... a ďalších ${items.length-5}</td></tr>`:''}
+          </tbody></table></div>
+        </div>`;
+      });
+      previewHtml+=`<div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-accent" onclick="confirmImpCin()">Importovať všetky (${imported.length})</button>
+        <button class="btn btn-outline" onclick="document.getElementById('import-cin-preview').innerHTML=''">Zrušiť</button>
+      </div></div>`;
+      prev.innerHTML=previewHtml;
+    }catch(err){msg.innerHTML=`<div class="alert alert-err">Chyba: ${err.message}</div>`;}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function confirmImpCin(){
+  if(!window._impCin)return;
+  window._impCin.forEach(c=>S.cinnosti.push(c));
+  if(window._impVpList)S.vpList=window._impVpList;
+  save();renderAll();
+  document.getElementById('import-cin-preview').innerHTML='';
+  document.getElementById('import-cin-msg').innerHTML=`<div class="alert alert-ok">✓ Importovaných ${window._impCin.length} činností.</div>`;
+  window._impCin=null;window._impVpList=null;
+}
+
+function handleDropWkr(e){e.preventDefault();document.getElementById('drop-wkr').classList.remove('drag');handleFileWkr(e.dataTransfer.files[0]);}
+function handleFileWkr(file){
+  if(!file)return;
+  const msg=document.getElementById('import-wkr-msg');
+  const prev=document.getElementById('import-wkr-preview');
+  msg.innerHTML='<div class="alert alert-info">Načítavam...</div>';prev.innerHTML='';
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const imported=[];let skipped=0;
+      rows.forEach((row,ri)=>{
+        const name=String(row[0]||'').trim();
+        const prof=String(row[1]||'').trim();
+        const hrs=parseFloat(String(row[2]||'8').replace(',','.'));
+        const hours=isNaN(hrs)?8:hrs;
+        if(!name||!prof){skipped++;return;}
+        if(ri===0&&(name.toLowerCase().includes('meno')||name.toLowerCase().includes('name'))){skipped++;return;}
+        if(S.workers.some(w=>w.name==name&&w.prof==prof)){skipped++;return;}
+        imported.push({id:S.nextWorkerId++,name,prof,hours});
+      });
+      if(!imported.length){msg.innerHTML='<div class="alert alert-err">Nenašli sa platné riadky.</div>';return;}
+      window._impWkr=imported;
+      msg.innerHTML=`<div class="alert alert-ok">Nájdených ${imported.length} pracovníkov.</div>`;
+      prev.innerHTML=`<div style="overflow-x:auto;margin-top:10px"><table class="tbl"><thead><tr><th>Meno</th><th>Profesia</th><th>H/deň</th></tr></thead>
+        <tbody>${imported.slice(0,15).map(w=>`<tr><td style="font-weight:600;color:var(--text)">${w.name}</td><td><span class="prof-badge pf-${profClass(w.prof)}">${w.prof}</span></td><td style="color:var(--acc);font-family:var(--font-mono)">${w.hours}</td></tr>`).join('')}
+        ${imported.length>15?`<tr><td colspan="3" style="text-align:center;color:var(--text3)">... a ďalších ${imported.length-15}</td></tr>`:''}</tbody></table></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-accent" onclick="confirmImpWkr()">Importovať ${imported.length}</button>
+          <button class="btn btn-outline" onclick="document.getElementById('import-wkr-preview').innerHTML=''">Zrušiť</button>
+        </div>`;
+    }catch(err){msg.innerHTML=`<div class="alert alert-err">Chyba: ${err.message}</div>`;}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function confirmImpWkr(){if(!window._impWkr)return;window._impWkr.forEach(w=>S.workers.push(w));save();renderAll();document.getElementById('import-wkr-preview').innerHTML='';document.getElementById('import-wkr-msg').innerHTML=`<div class="alert alert-ok">✓ Importovaných ${window._impWkr.length} pracovníkov.</div>`;window._impWkr=null;}
+
+// ═══════════════════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════════════════
+function exportAll(){
+  if(typeof XLSX === 'undefined'){
+    // XLSX not loaded yet - try loading from CDN and retry
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=()=>exportAll();
+    s.onerror=()=>alert('Nepodarilo sa načítať XLSX knižnicu. Skontroluj internetové pripojenie.');
+    document.head.appendChild(s);
+    return;
+  }
+  try{
+    const wb=XLSX.utils.book_new();
+
+    // Sheet 1: Plán úloh
+    const planData=[['#','Kód','Názov','Popis','Profesia','Nh celkom','Ľudia','Začiatok','Koniec','Prac.dní','Sobota','Nedeľa','Pracovníci','Stav']];
+    S.jobs.forEach((j,i)=>{
+      const nhOsStr = j.nhPerWorkerActual
+        ? j.nhPerWorkerActual.map((v,wi)=>`${j.workerNames[wi]}: ${parseFloat(v).toFixed(1)}Nh`).join(', ')
+        : parseFloat((j.nhPerWorker||0)).toFixed(1)+' Nh/os.';
+      planData.push([
+        i+1, j.cid||'', j.cinName, j.desc||'', j.prof,
+        j.nh, j.pocet,
+        fmtDate(j.startDate)+' '+fmtH(j.startH||6),
+        fmtDate(j.endDate)+' '+fmtH(j.endH||0),
+        j.workdays||'',
+        j.allowSat?'Áno':'Nie', j.allowSun?'Áno':'Nie',
+        j.workerNames?j.workerNames.join(', '):'',
+        j.done?'Splnená':'Aktívna',
+        nhOsStr
+      ]);
+    });
+    const wsPlan=XLSX.utils.aoa_to_sheet(planData);
+    wsPlan['!cols']=[{wch:3},{wch:13},{wch:28},{wch:30},{wch:9},{wch:9},{wch:6},{wch:18},{wch:18},{wch:8},{wch:7},{wch:7},{wch:35},{wch:10},{wch:40}];
+    XLSX.utils.book_append_sheet(wb,wsPlan,'Plán úloh');
+
+    // Sheet 2: Hodinový detail
+    const detData=[['Úloha','Kód','Profesia','Pracovník','Dátum','Začiatok','Koniec','Hodiny']];
+    S.jobs.forEach(j=>{
+      if(!j.schedule)return;
+      j.schedule.forEach(s=>{
+        const w=S.workers.find(x=>x.id==s.wid);
+        detData.push([
+          j.cinName, j.cid||'', j.prof,
+          w?w.name:'?',
+          fmtDate(s.date), fmtH(s.startH), fmtH(s.endH),
+          parseFloat((s.endH-s.startH).toFixed(2))
+        ]);
+      });
+    });
+    const wsDet=XLSX.utils.aoa_to_sheet(detData);
+    wsDet['!cols']=[{wch:28},{wch:13},{wch:9},{wch:20},{wch:13},{wch:7},{wch:7},{wch:7}];
+    XLSX.utils.book_append_sheet(wb,wsDet,'Hodinový plán');
+
+    // Sheet 3: Pracovníci
+    const wData=[['Meno','Profesia','H/deň','Stav','Aktuálne úlohy']];
+    S.workers.forEach(w=>{
+      const bj=S.jobs.filter(j=>!j.done&&j.workerIds&&j.workerIds.includes(w.id));
+      wData.push([w.name,w.prof,w.hours||8,bj.length?'Obsadený':'Voľný',bj.map(j=>j.cinName).join('; ')]);
+    });
+    const wsW=XLSX.utils.aoa_to_sheet(wData);
+    wsW['!cols']=[{wch:22},{wch:10},{wch:8},{wch:10},{wch:50}];
+    XLSX.utils.book_append_sheet(wb,wsW,'Pracovníci');
+
+    // Sheet 4: Činnosti
+    const cData=[['ID','Kód','Názov','Popis','Profesia','Nh']];
+    S.cinnosti.forEach(c=>cData.push([c.id,c.cid||'',c.name,c.desc||'',c.prof,c.nh]));
+    const wsC=XLSX.utils.aoa_to_sheet(cData);
+    wsC['!cols']=[{wch:10},{wch:13},{wch:34},{wch:38},{wch:11},{wch:7}];
+    XLSX.utils.book_append_sheet(wb,wsC,'Činnosti');
+
+    // Sheet 5: Individuálne listy pre každého pracovníka
+    S.workers.forEach(w=>{
+      const wSlots=[];
+      S.jobs.forEach(j=>{
+        if(!j.schedule)return;
+        j.schedule.filter(s=>s.wid===w.id).forEach(s=>{
+          wSlots.push({
+            date:s.date,
+            dateSort:s.date,
+            cinName:j.cinName,
+            cid:j.cid||'',
+            prof:j.prof,
+            startH:s.startH,
+            endH:s.endH,
+            hours:s.endH-s.startH,
+            done:j.done,
+          });
+        });
+      });
+      // Sort by date then startH
+      wSlots.sort((a,b)=>a.dateSort.localeCompare(b.dateSort)||a.startH-b.startH);
+
+      const wSheetData=[
+        [`Pracovník: ${w.name}`,'','','','',''],
+        [`Profesia: ${w.prof}  |  Prac. hodiny/deň: ${w.hours||8}h`,'','','','',''],
+        [''],
+        ['Dátum','Deň','Činnosť','Kód','Od','Do','Hodín','Stav'],
+      ];
+
+      const DAY=['Nedeľa','Pondelok','Utorok','Streda','Štvrtok','Piatok','Sobota'];
+      let totalH=0;
+      let lastDate='';
+
+      wSlots.forEach(s=>{
+        // Add empty row between different dates
+        if(lastDate&&lastDate!==s.date) wSheetData.push(['','','','','','','','']);
+        lastDate=s.date;
+        const d=new Date(s.date+'T12:00:00');
+        wSheetData.push([
+          fmtDate(s.date),
+          DAY[d.getDay()],
+          s.cinName,
+          s.cid,
+          fmtH(s.startH),
+          fmtH(s.endH),
+          parseFloat(s.hours.toFixed(2)),
+          s.done?'Splnená':'Aktívna',
+        ]);
+        totalH+=s.hours;
+      });
+
+      wSheetData.push(['']);
+      wSheetData.push(['','','','','SPOLU:',parseFloat(totalH.toFixed(2)),'hodín','']);
+
+      const wsWkr=XLSX.utils.aoa_to_sheet(wSheetData);
+      wsWkr['!cols']=[{wch:14},{wch:11},{wch:30},{wch:13},{wch:7},{wch:7},{wch:7},{wch:10}];
+      // Bold header rows
+      wsWkr['!merges']=[
+        {s:{r:0,c:0},e:{r:0,c:7}},
+        {s:{r:1,c:0},e:{r:1,c:7}},
+      ];
+      // Safe sheet name (max 31 chars, no special chars)
+      const sheetName=w.name.replace(/[:\\\/\?\*\[\]]/g,'').slice(0,31);
+      XLSX.utils.book_append_sheet(wb,wsWkr,sheetName);
+    });
+
+    XLSX.writeFile(wb,'WorkPlan_'+todayStr()+'.xlsx');
+  }catch(e){
+    alert('Chyba pri exporte: '+e.message);
+    console.error(e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ONEDRIVE SYNC
+// ═══════════════════════════════════════════════════════════════════
+const OD_CLIENT_ID='e3f56150-7b89-41ae-a40f-8921a57fa262';
+const OD_TENANT_ID='95474b64-2f58-485b-a18a-25cf0dd0fe7e';
+const OD_SCOPES=['Files.ReadWrite','User.Read'];
+// SharePoint tímová lokalita — všetci členovia majú prístup
+const SP_SHARE_ID='u!aHR0cHM6Ly96b3Nzay1teS5zaGFyZXBvaW50LmNvbS86dTovZy9wZXJzb25hbC9lcmlrX2FzY2hlbmdlc2Nod2FuZHRuZXJfem9zX3NrL0lRQS1UMkJMXzRiUlNJWXd4Q3FyNkZHTEFmWEh6ZEQ0TlZESFlyYVZnMDJOcmNBP2U9UkpUZGR1';
+const SP_META_URL=`https://graph.microsoft.com/v1.0/shares/${SP_SHARE_ID}/driveItem`;
+const SP_CONTENT_URL=`https://graph.microsoft.com/v1.0/shares/${SP_SHARE_ID}/driveItem/content`;
+let SP_WRITE_URL=null; // resolved after first load
+let msalApp=null, msalAccount=null, syncEnabled=false, lastEtag=null, saveTimer=null;
+
+function odSetStatus(state,label){
+  const el=document.getElementById('sync-area');
+  if(!el)return;
+  if(state==='hidden'){el.innerHTML='';return;}
+  el.innerHTML=`<span class="sync-dot ${state}"></span><span class="sync-label">${label}</span>`;
+}
+
+function odSetUser(account){
+  const el=document.getElementById('sync-area');
+  if(!el||!account)return;
+  const name=account.name||account.username||'';
+  const ini=name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
+  const first=name.split(' ')[0]||name;
+  el.innerHTML=`
+    <span class="sync-dot synced"></span>
+    <div class="user-chip">
+      <div class="user-av">${ini}</div>
+      <span>${first}</span>
+      <button onclick="odLogout()" style="background:none;border:none;color:#5a5a72;cursor:pointer;font-size:10px;padding:0 0 0 4px" title="Odhlásiť">✕</button>
+    </div>`;
+}
+
+async function odGetToken(){
+  if(!msalApp||!msalAccount)return null;
+  try{
+    const r=await msalApp.acquireTokenSilent({scopes:OD_SCOPES,account:msalAccount});
+    return r.accessToken;
+  }catch(e){
+    try{const r=await msalApp.acquireTokenPopup({scopes:OD_SCOPES,account:msalAccount});return r.accessToken;}
+    catch(e2){return null;}
+  }
+}
+
+
+async function odLoad(){
+  odSetStatus('syncing','Načítavam...');
+  const token=await odGetToken();
+  if(!token){odSetStatus('error','Token chyba');return;}
+  try{
+    // Read via shared link
+    const r=await fetch(SP_CONTENT_URL,{headers:{Authorization:`Bearer ${token}`}});
+    if(r.status===404){await odSaveNow();return;}
+    if(!r.ok){odSetStatus('error','Chyba čítania '+r.status);return;}
+    lastEtag=r.headers.get('ETag')||r.headers.get('etag')||null;
+    const remote=await r.json();
+    if(remote&&typeof remote==='object'&&(remote.nextJobId||0)>=(S.nextJobId||0)){
+      S=remote;
+      try{localStorage.setItem('wplan4',JSON.stringify(S));}catch(e){}
+      renderAll();
+    }
+    // Resolve write URL (driveId + itemId) for all users
+    if(!SP_WRITE_URL){
+      const m=await fetch(SP_META_URL,{headers:{Authorization:`Bearer ${token}`}});
+      if(m.ok){
+        const meta=await m.json();
+        const driveId=meta.parentReference&&meta.parentReference.driveId;
+        const itemId=meta.id;
+        if(driveId&&itemId) SP_WRITE_URL=`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/content`;
+      }
+    }
+    odSetUser(msalAccount);
+  }catch(e){odSetStatus('error','Chyba: '+e.message);}
+}
+
+async function odSaveNow(){
+  if(!syncEnabled)return;
+  const token=await odGetToken();
+  if(!token)return;
+  // Need write URL - load first if not resolved
+  if(!SP_WRITE_URL){await odLoad();return;}
+  odSetStatus('syncing','Ukladám...');
+  try{
+    const r=await fetch(SP_WRITE_URL,
+      {method:'PUT',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+       body:JSON.stringify(S)});
+    if(r.ok){const d=await r.json();lastEtag=d.eTag;odSetUser(msalAccount);}
+    else odSetStatus('error','Chyba ukladania '+r.status);
+  }catch(e){odSetStatus('error','Offline?');}
+}
+
+async function odPoll(){
+  if(!syncEnabled)return;
+  const token=await odGetToken();
+  if(!token)return;
+  try{
+    const r=await fetch(SP_META_URL,{headers:{Authorization:`Bearer ${token}`}});
+    if(!r.ok)return;
+    const meta=await r.json();
+    if(meta.eTag&&meta.eTag!==lastEtag){odLoad();}
+  }catch(e){}
+}
+
+async function odLogin(){
+  if(!msalApp)return;
+  try{
+    await msalApp.loginPopup({scopes:OD_SCOPES});
+    const accounts=msalApp.getAllAccounts();
+    if(accounts.length){msalAccount=accounts[0];syncEnabled=true;await odLoad();setInterval(odPoll,30000);}
+  }catch(e){
+    if(e.errorCode!=='user_cancelled') msalApp.loginRedirect({scopes:OD_SCOPES});
+  }
+}
+
+function odLogout(){
+  // Clear all MSAL cached tokens from localStorage
+  Object.keys(localStorage).forEach(k=>{
+    if(k.includes('msal')||k.includes('login')||k.includes('token')||k.includes(OD_CLIENT_ID)){
+      localStorage.removeItem(k);
+    }
+  });
+  sessionStorage.clear();
+  msalAccount=null;syncEnabled=false;msalApp=null;
+  odSetStatus('hidden','');
+  document.getElementById('sync-area').innerHTML=
+    `<button onclick="location.reload()" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.3);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">
+      Prihlásiť sa
+    </button>`;
+  setTimeout(()=>location.reload(), 500);
+}
+
+// Global helper - open in console: clearMSAL()
+function clearMSAL(){
+  Object.keys(localStorage).forEach(k=>{if(k.includes('msal')||k.includes(OD_CLIENT_ID))localStorage.removeItem(k);});
+  sessionStorage.clear();
+  location.reload();
+}
+
+// Patch save to also sync
+const _save=function(){try{localStorage.setItem('wplan4',JSON.stringify(S));}catch(e){}};
+function save(){
+  try{localStorage.setItem('wplan4',JSON.stringify(S));}catch(e){}
+  saveToFirestore();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+document.getElementById('startDate').value=todayStr();
+document.getElementById('gantt-from').value=todayStr();
+document.getElementById('gantt-to').value=addDays(todayStr(),30);
+renderAll();
+
+// Init MSAL after short delay
+setTimeout(async ()=>{
+  try{
+    if(typeof msal==='undefined'){
+      // MSAL not loaded, show login button anyway
+      odSetStatus('hidden','');
+      document.getElementById('sync-area').innerHTML=
+        `<button onclick="alert('MSAL sa nenačítal. Skontroluj internetové pripojenie.')" style="background:rgba(239,68,68,0.1);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit">
+          Sync chyba
+        </button>`;
+      return;
+    }
+    const cfg={auth:{clientId:OD_CLIENT_ID,authority:`https://login.microsoftonline.com/${OD_TENANT_ID}`,redirectUri:window.location.href.split('#')[0]},cache:{cacheLocation:'localStorage'}};
+    msalApp=new msal.PublicClientApplication(cfg);
+    await msalApp.initialize();
+    // Handle redirect response
+    const resp=await msalApp.handleRedirectPromise();
+    if(resp&&resp.account){msalAccount=resp.account;syncEnabled=true;await odLoad();setInterval(odPoll,30000);return;}
+    // Check cached accounts
+    const accounts=msalApp.getAllAccounts();
+    if(accounts.length){
+      msalAccount=accounts[0];
+      // Try to get token silently first to check if it works
+      try{
+        await msalApp.acquireTokenSilent({scopes:OD_SCOPES,account:msalAccount});
+        syncEnabled=true;await odLoad();setInterval(odPoll,30000);return;
+      }catch(e){
+        // Token invalid/expired - clear cache
+        Object.keys(localStorage).forEach(k=>{if(k.includes('msal')||k.includes(OD_CLIENT_ID))localStorage.removeItem(k);});
+        sessionStorage.clear();
+        msalAccount=null;
+      }
+    }
+    // Not logged in - show button
+    document.getElementById('sync-area').innerHTML=
+      `<button onclick="odLogin()" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.3);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">
+        MS Login
+      </button>`;
+  }catch(e){
+    console.warn('MSAL init error:',e);
+  }
+},300);
+
+// ═══════════════════════════════════════════════════════════════════
+// REMOVE / ADD WORKER FROM JOB
+// ═══════════════════════════════════════════════════════════════════
+let _modalJobId=null, _modalWid=null;
+
+function closeModals(){
+  document.getElementById('modal-remove').style.display='none';
+  document.getElementById('modal-add').style.display='none';
+  _modalJobId=null; _modalWid=null;
+}
+
+// ── REMOVE WORKER ────────────────────────────────────────────────
+function openRemoveWorkerModal(jobId, wid){
+  jobId=parseInt(jobId); wid=parseInt(wid);
+  const j=S.jobs.find(x=>parseInt(x.id)===jobId);
+  const w=S.workers.find(x=>parseInt(x.id)===wid);
+  if(!j)return;
+  _modalJobId=jobId; _modalWid=wid;
+  const wi=j.workerIds.findIndex(x=>parseInt(x)===wid);
+  const wname=w?w.name:(wi>=0?j.workerNames[wi]:'Pracovník');
+  document.getElementById('modal-remove-title').textContent=`Odobrať: ${wname}`;
+  document.getElementById('modal-remove-sub').textContent=`Úloha: ${j.cinName} · Profesia: ${j.prof}`;
+  document.getElementById('modal-remove-date').value=todayStr();
+  document.getElementById('modal-remove-msg').innerHTML='';
+  document.querySelector('input[name="remove-action"][value="replace"]').checked=true;
+  // Dynamic description based on how many other workers exist
+  const othersCount=j.workerIds.length-1;
+  const descEl=document.getElementById('modal-remove-desc');
+  if(descEl){
+    if(othersCount>0)
+      descEl.textContent=`Pracuje s ${othersCount} ďalší${othersCount>1?'mi':''} — zostatok Nh sa automaticky rozdelí medzi nich.`;
+    else
+      descEl.textContent='Pracuje sám — zostatok Nh ostane nepridelený (úloha rozrobená).';
+  }
+  updateRemoveInfo();
+  document.getElementById('modal-remove').style.display='flex';
+}
+
+function updateRemoveInfo(){
+  const j=S.jobs.find(x=>parseInt(x.id)===parseInt(_modalJobId));
+  if(!j)return;
+  const fromDate=document.getElementById('modal-remove-date').value||todayStr();
+  const remaining=calcRemainingNh(j,parseInt(_modalWid),fromDate);
+  const el=document.getElementById('modal-remove-nhinfo');
+  el.textContent=`Zostatok Nh od ${fmtDate(fromDate)}: ~${remaining.toFixed(1)} Nh`;
+}
+
+function calcRemainingNh(j, wid, fromDate){
+  if(!j.schedule)return 0;
+  const widInt=parseInt(wid);
+  return Math.max(0,j.schedule
+    .filter(s=>parseInt(s.wid)===widInt && s.date>=fromDate)
+    .reduce((sum,s)=>sum+(s.endH-s.startH),0));
+}
+
+function calcTotalRemainingNh(j, fromDate){
+  // Počítaj zo VŠETKÝCH slotov vrátane ešte nespracovaných
+  if(!j.schedule||!j.schedule.length)return j.nh||0;
+  return Math.max(0,j.schedule
+    .filter(s=>s.date>=fromDate)
+    .reduce((sum,s)=>sum+(s.endH-s.startH),0));
+}
+
+function calcDoneNh(j, beforeDate){
+  // Koľko Nh bolo reálne odpracovaných pred daným dátumom
+  if(!j.schedule)return 0;
+  return j.schedule
+    .filter(s=>s.date<beforeDate)
+    .reduce((sum,s)=>sum+(s.endH-s.startH),0);
+}
+
+function confirmRemoveWorker(){
+  const jobId=parseInt(_modalJobId);
+  const widInt=parseInt(_modalWid);
+  const j=S.jobs.find(x=>parseInt(x.id)===jobId);
+  const msgEl=document.getElementById('modal-remove-msg');
+  if(!j){closeModals();return;}
+
+  const w=S.workers.find(x=>parseInt(x.id)===widInt);
+  const wi=j.workerIds.findIndex(x=>parseInt(x)===widInt);
+  if(wi===-1){msgEl.innerHTML='<div class="alert alert-err">Pracovník nenájdený v úlohe.</div>';return;}
+
+  const wname=w?w.name:(j.workerNames[wi]||'Pracovník');
+  const fromDate=document.getElementById('modal-remove-date').value||todayStr();
+  const actionEl=document.querySelector('input[name="remove-action"]:checked');
+  const action=actionEl?actionEl.value:'remove';
+
+  // BUG 4 FIX: zostatok = pôvodné Nh - odrobené hodiny pred fromDate
+  // NEKOMBINUJ so schedule.filter(>=fromDate) lebo tam môžu byť aj sloty iných pracovníkov
+  const doneNh=calcDoneNh(j,fromDate); // odpracované VŠETKÝMI pred fromDate
+  const totalRemainingBeforeRemoval=Math.max(0,(j.nh||0)-doneNh);
+  // Zostatok konkrétneho odoberaného pracovníka (pre replace)
+  const remainingNh=calcRemainingNh(j,widInt,fromDate);
+
+  // Zachovaj históriu — ulož do pastWorkers
+  if(!j.pastWorkerIds)j.pastWorkerIds=[];
+  if(!j.pastWorkerNames)j.pastWorkerNames=[];
+  if(!j.pastWorkerUntil)j.pastWorkerUntil={};
+  if(!j.pastWorkerIds.map(x=>parseInt(x)).includes(widInt)){
+    j.pastWorkerIds.push(widInt);
+    j.pastWorkerNames.push(wname);
+    j.pastWorkerUntil[widInt]=fromDate;
+  }
+
+  // Odstráň len BUDÚCE sloty tohto pracovníka (minulé zostanú pre Gantt)
+  j.schedule=(j.schedule||[]).filter(s=>!(parseInt(s.wid)===widInt && s.date>=fromDate));
+
+  // Odstráň z aktívneho zoznamu
+  j.workerIds.splice(wi,1);
+  j.workerNames.splice(wi,1);
+  if(j.nhPerWorkerActual)j.nhPerWorkerActual.splice(wi,1);
+  if(j.workerStarts)j.workerStarts.splice(wi,1);
+  j.pocet=j.workerIds.length;
+
+  if(action==='remove'){
+    if(j.workerIds.length>0){
+      // Má kolegov — vymaž ich budúce sloty a prerozdeľ celkový zostatok
+      j.schedule=(j.schedule||[]).filter(s=>s.date<fromDate);
+      const remWorkers=j.workerIds.map(id=>S.workers.find(x=>parseInt(x.id)===parseInt(id))).filter(Boolean);
+      const nhEach=totalRemainingBeforeRemoval/Math.max(1,remWorkers.length);
+      let latestEnd={date:fromDate,h:j.startH||6};
+      remWorkers.forEach(wo=>{
+        const dH=wo.hours||8;
+        const {slots,endDate,endH}=scheduleWorker(wo.id,nhEach,fromDate,j.startH||6,j.startH||6,dH,j.allowSat,j.allowSun);
+        j.schedule=j.schedule.concat(slots);
+        if(endDate>latestEnd.date||(endDate===latestEnd.date&&endH>latestEnd.h))latestEnd={date:endDate,h:endH};
+      });
+      j.endDate=latestEnd.date;j.endH=latestEnd.h;
+      j.workdays=new Set(j.schedule.map(s=>s.date)).size;
+      save();renderAll();closeModals();
+      document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ ${wname} odobraný. ${totalRemainingBeforeRemoval.toFixed(1)} Nh rozdelených medzi ${remWorkers.length} pracovníkov. Nový koniec: ${fmtDate(j.endDate)} ${fmtH(j.endH)}</div>`;
+    } else {
+      // Pracoval sám — zostatok uloží sa na úlohu
+      j.endDate=fromDate;j.endH=j.startH||6;
+      j.nhRemaining=totalRemainingBeforeRemoval;
+      save();renderAll();closeModals();
+      document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ ${wname} odobraný od ${fmtDate(fromDate)}. Zostatok <strong>${totalRemainingBeforeRemoval.toFixed(1)} Nh</strong> nepridelený — priradenie cez + Pracovník.</div>`;
+    }
+    nav('plan',document.querySelector('.nav-item'));
+    return;
+  }
+
+  if(action==='replace'){
+    // BUG 1 FIX: vylúč aj odobraného pracovníka (widInt) z kandidátov
+    const alreadyOnJob=j.workerIds.map(i=>parseInt(i));
+    const profWorkers=S.workers.filter(x=>{
+      const xid=parseInt(x.id);
+      return x.prof===j.prof && !alreadyOnJob.includes(xid) && xid!==widInt;
+    });
+    const avail=profWorkers.filter(x=>{
+      let free=0;
+      for(let i=0;i<30;i++){const d=addDays(fromDate,i);if(!isWorkday(d,j.allowSat,j.allowSun))continue;const ivs=freeIntervalsOnDay(x.id,d,j.startH||6,x.hours||8,j.startH||6);free+=ivs.reduce((s,iv)=>s+(iv.to-iv.from),0);}
+      return free>0.01;
+    });
+    if(!avail.length){
+      msgEl.innerHTML=`<div class="alert alert-warn">Žiadny iný voľný pracovník s profesiou ${j.prof}. Skús možnosť Odobrať.</div>`;
+      // Rollback
+      j.workerIds.splice(wi,0,widInt);
+      j.workerNames.splice(wi,0,wname);
+      j.pocet=j.workerIds.length;
+      if(j.pastWorkerIds.length)j.pastWorkerIds.pop();
+      if(j.pastWorkerNames.length)j.pastWorkerNames.pop();
+      return;
+    }
+    avail.sort((a,b)=>{
+      const fa=freeIntervalsOnDay(a.id,fromDate,j.startH||6,a.hours||8,j.startH||6).reduce((s,iv)=>s+(iv.to-iv.from),0);
+      const fb=freeIntervalsOnDay(b.id,fromDate,j.startH||6,b.hours||8,j.startH||6).reduce((s,iv)=>s+(iv.to-iv.from),0);
+      return fb-fa;
+    });
+    const newW=avail[0];
+    const dH=newW.hours||8;
+    // BUG 2 FIX: náhradník začína presne od fromDate, nie od prvého voľného dňa pred tým
+    const {slots,endDate,endH}=scheduleWorker(newW.id,remainingNh,fromDate,j.startH||6,j.startH||6,dH,j.allowSat,j.allowSun);
+    j.schedule=j.schedule.concat(slots);
+    j.workerIds.push(newW.id);
+    j.workerNames.push(newW.name);
+    j.pocet=j.workerIds.length;
+    // Koniec = max(existujúci koniec kolegov, koniec nového)
+    if(endDate>j.endDate||(endDate===j.endDate&&endH>j.endH)){j.endDate=endDate;j.endH=endH;}
+    j.workdays=new Set(j.schedule.map(s=>s.date)).size;
+    save();renderAll();closeModals();
+    document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ ${wname} odobraný, nahradený: <b>${newW.name}</b> od ${fmtDate(fromDate)}. Nový koniec: ${fmtDate(j.endDate)} ${fmtH(j.endH)}</div>`;
+    nav('plan',document.querySelector('.nav-item'));
+  }
+}
+
+// ── ADD WORKER ───────────────────────────────────────────────────
+function openAddWorkerModal(jobId){
+  const j=S.jobs.find(x=>parseInt(x.id)===parseInt(jobId));
+  if(!j)return;
+  _modalJobId=parseInt(jobId);
+  const today=todayStr();
+
+  document.getElementById('modal-add-title').textContent=`Pridať pracovníka: ${j.cinName}`;
+  document.getElementById('modal-add-sub').textContent=`Profesia: ${j.prof}${j.workerNames.length?' · Aktuálni: '+j.workerNames.join(', '):''}`;
+  document.getElementById('modal-add-msg').innerHTML='';
+  document.getElementById('modal-add-info').textContent='';
+  document.getElementById('modal-add-summary').textContent='';
+
+  // Zisti dátum odobrania posledného pracovníka
+  const lastRemovedDate=j.pastWorkerUntil
+    ? Object.values(j.pastWorkerUntil).sort().pop()
+    : null;
+  const defaultAfterDate=lastRemovedDate||today;
+
+  // Nastav popis "Nadviazať" možnosti podľa kontextu
+  const afterLabel=document.getElementById('modal-add-after-label');
+  if(afterLabel){
+    if(j.workerIds.length>0){
+      afterLabel.textContent=`Od dnes (${fmtDate(today)}) — zostatok Nh sa vyrovná medzi všetkých vrátane nového`;
+    } else if(lastRemovedDate){
+      afterLabel.textContent=`Od ${fmtDate(lastRemovedDate)} — kde predchádzajúci skončil`;
+    } else {
+      afterLabel.textContent=`Od dnes (${fmtDate(today)})`;
+    }
+  }
+
+  // Predvol dátum pre manuálny výber
+  document.getElementById('modal-add-start-date').value=defaultAfterDate;
+  document.querySelector('input[name="add-start"][value="after"]').checked=true;
+
+  // Sekcia výberu dátumu — vždy zobraz
+  const startSection=document.getElementById('modal-add-start-section');
+  if(startSection) startSection.style.display='block';
+
+  // Naplň zoznam pracovníkov
+  const sel=document.getElementById('modal-add-worker');
+  sel.innerHTML='<option value="">— vyber pracovníka —</option>';
+  const profWorkers=S.workers.filter(w=>
+    w.prof===j.prof &&
+    !j.workerIds.map(i=>parseInt(i)).includes(parseInt(w.id)) &&
+    !j.pastWorkerIds?.map(i=>parseInt(i)).includes(parseInt(w.id))
+  );
+
+  profWorkers.forEach(w=>{
+    let free=0;
+    for(let i=0;i<14;i++){
+      const d=addDays(defaultAfterDate,i);
+      if(!isWorkday(d,j.allowSat,j.allowSun))continue;
+      const ivs=freeIntervalsOnDay(w.id,d,j.startH||6,w.hours||8,j.startH||6);
+      free+=ivs.reduce((s,iv)=>s+(iv.to-iv.from),0);
+    }
+    const freeLabel=free>0?`voľný ${free.toFixed(0)}h/14dní`:'obsadený';
+    sel.innerHTML+=`<option value="${w.id}">${w.name} (${w.hours}h/deň · ${freeLabel})</option>`;
+  });
+
+  // Ak sú aj odobratí — ponúkni ich tiež (môžu sa vrátiť)
+  if(j.pastWorkerIds&&j.pastWorkerIds.length){
+    sel.innerHTML+='<optgroup label="── Odobratí (návrat) ──">';
+    j.pastWorkerIds.forEach((pid,pi)=>{
+      const pw=S.workers.find(x=>parseInt(x.id)===parseInt(pid));
+      if(pw) sel.innerHTML+=`<option value="${pw.id}">${pw.name} (návrat · ${pw.hours}h/deň)</option>`;
+    });
+    sel.innerHTML+='</optgroup>';
+  }
+
+  if(!profWorkers.length&&(!j.pastWorkerIds||!j.pastWorkerIds.length)){
+    sel.innerHTML='<option value="">Žiadni dostupní pracovníci s profesiou '+j.prof+'</option>';
+  }
+
+  document.getElementById('modal-add').style.display='flex';
+}
+
+function getAddStartDate(){
+  const j=S.jobs.find(x=>parseInt(x.id)===parseInt(_modalJobId));
+  if(!j)return todayStr();
+  const mode=document.querySelector('input[name="add-start"]:checked')?.value||'after';
+  if(mode==='from'){
+    return document.getElementById('modal-add-start-date').value||todayStr();
+  }
+  // 'after' — od posledného odobraného ALEBO od dnes ak má aktívnych
+  if(j.workerIds.length>0) return todayStr();
+  const lastRemovedDate=j.pastWorkerUntil
+    ? Object.values(j.pastWorkerUntil).sort().pop()
+    : null;
+  return lastRemovedDate||todayStr();
+}
+
+function updateAddInfo(){
+  const wid=parseInt(document.getElementById('modal-add-worker').value);
+  const j=S.jobs.find(x=>parseInt(x.id)===parseInt(_modalJobId));
+  const w=S.workers.find(x=>parseInt(x.id)===wid);
+  const el=document.getElementById('modal-add-info');
+  const sumEl=document.getElementById('modal-add-summary');
+  if(!j){if(el)el.textContent='';return;}
+
+  const startDate=getAddStartDate();
+  const nhRem=j.nhRemaining>0.01?j.nhRemaining:Math.max(0,(j.nh||0)-calcDoneNh(j,startDate));
+
+  if(w){
+    el.textContent=`Zostatok ~${nhRem.toFixed(1)} Nh · začiatok ${fmtDate(startDate)}`;
+  }
+  if(sumEl){
+    sumEl.innerHTML=`<b>Zostatok:</b> ${nhRem.toFixed(1)} Nh · <b>Štart:</b> ${fmtDate(startDate)}`;
+  }
+}
+
+function confirmAddWorker(){
+  const wid=parseInt(document.getElementById('modal-add-worker').value);
+  const j=S.jobs.find(x=>parseInt(x.id)===parseInt(_modalJobId));
+  const w=S.workers.find(x=>parseInt(x.id)===wid);
+  const msgEl=document.getElementById('modal-add-msg');
+  if(!j){closeModals();return;}
+  if(!w){msgEl.innerHTML='<div class="alert alert-err">Vyber pracovníka.</div>';return;}
+
+  const startDate=getAddStartDate();
+
+  if(j.workerIds.length>0){
+    // MÁ AKTÍVNYCH pracovníkov — vyrovnaj záťaž medzi všetkých od startDate
+    const doneNh=calcDoneNh(j,startDate);
+    const totalRemaining=Math.max(0,(j.nh||0)-doneNh);
+
+    if(totalRemaining<0.01){
+      msgEl.innerHTML='<div class="alert alert-warn">Úloha je takmer hotová, nie je čo prideliť.</div>';return;
+    }
+
+    const allWorkers=[...j.workerIds.map(id=>S.workers.find(x=>parseInt(x.id)===parseInt(id))).filter(Boolean), w];
+    const nhEach=totalRemaining/allWorkers.length;
+
+    j.schedule=(j.schedule||[]).filter(s=>s.date<startDate);
+    let latestEnd={date:startDate,h:j.startH||6};
+    allWorkers.forEach(wo=>{
+      const dH=wo.hours||8;
+      const {slots,endDate,endH}=scheduleWorker(wo.id,nhEach,startDate,j.startH||6,j.startH||6,dH,j.allowSat,j.allowSun);
+      j.schedule=j.schedule.concat(slots);
+      if(endDate>latestEnd.date||(endDate===latestEnd.date&&endH>latestEnd.h))latestEnd={date:endDate,h:endH};
+    });
+
+    if(!j.workerIds.map(i=>parseInt(i)).includes(wid)){
+      j.workerIds.push(wid);j.workerNames.push(w.name);
+    }
+    j.pocet=j.workerIds.length;
+    j.endDate=latestEnd.date;j.endH=latestEnd.h;
+    j.workdays=new Set(j.schedule.map(s=>s.date)).size;
+
+    save();renderAll();closeModals();
+    document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ ${w.name} pridaný od ${fmtDate(startDate)}. ${totalRemaining.toFixed(1)} Nh rozdelených na ${allWorkers.length} pracovníkov. Nový koniec: ${fmtDate(j.endDate)} ${fmtH(j.endH)}</div>`;
+    nav('plan',document.querySelector('.nav-item'));
+    return;
+  }
+
+  // BEZ AKTÍVNYCH pracovníkov — použi nhRemaining
+  let totalRemaining;
+  if(j.nhRemaining>0.01){
+    totalRemaining=j.nhRemaining;
+  } else {
+    const doneNh=calcDoneNh(j,startDate);
+    totalRemaining=Math.max(0,(j.nh||0)-doneNh);
+    if(totalRemaining<0.01) totalRemaining=calcTotalRemainingNh(j,startDate);
+  }
+
+  if(totalRemaining<0.01){
+    msgEl.innerHTML='<div class="alert alert-warn">Úloha je takmer hotová, nie je čo prideliť.</div>';return;
+  }
+
+  j.schedule=(j.schedule||[]).filter(s=>s.date<startDate);
+  let latestEnd={date:startDate,h:j.startH||6};
+  const dH=w.hours||8;
+  const {slots,endDate,endH}=scheduleWorker(w.id,totalRemaining,startDate,j.startH||6,j.startH||6,dH,j.allowSat,j.allowSun);
+  j.schedule=j.schedule.concat(slots);
+  latestEnd={date:endDate,h:endH};
+
+  j.workerIds.push(wid);
+  j.workerNames.push(w.name);
+  j.pocet=j.workerIds.length;
+  j.endDate=latestEnd.date;j.endH=latestEnd.h;
+  j.workdays=new Set(j.schedule.map(s=>s.date)).size;
+  j.nhRemaining=0;
+
+  save();renderAll();closeModals();
+  document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ ${w.name} pridaný od ${fmtDate(startDate)}. Zostatok ${totalRemaining.toFixed(1)} Nh. Nový koniec: ${fmtDate(j.endDate)} ${fmtH(j.endH)}</div>`;
+  nav('plan',document.querySelector('.nav-item'));
+}
+
+// ── ABSENCIE ─────────────────────────────────────────────────────
+let _absenceWid=null;
+
+function openAbsenceModal(wid){
+  const widInt=parseInt(wid);
+  _absenceWid=widInt;
+  const w=S.workers.find(x=>parseInt(x.id)===widInt);
+  if(!w)return;
+  // Store in hidden input as backup
+  document.getElementById('absence-wid').value=widInt;
+  document.getElementById('modal-absence-title').textContent=`Absencia: ${w.name}`;
+  document.getElementById('modal-absence-msg').innerHTML='';
+  const today=todayStr();
+  document.getElementById('absence-od').value=today;
+  document.getElementById('absence-do').value=addDays(today,6);
+  document.getElementById('absence-typ').value='Dovolenka';
+  document.getElementById('absence-poznamka').value='';
+  document.getElementById('modal-absence').style.display='flex';
+}
+
+function confirmAbsence(){
+  const widFromInput=parseInt(document.getElementById('absence-wid')?.value||'0');
+  const widToUse=widFromInput||parseInt(_absenceWid)||0;
+  const w=S.workers.find(x=>parseInt(x.id)===widToUse);
+  const msgEl=document.getElementById('modal-absence-msg');
+  if(!w){
+    msgEl.innerHTML='<div class="alert alert-err">Chyba: pracovník nenájdený (ID:'+widToUse+'). Skús znova.</div>';
+    return;
+  }
+
+  const od=document.getElementById('absence-od').value;
+  const doo=document.getElementById('absence-do').value;
+  const typ=document.getElementById('absence-typ').value;
+  const poznamka=document.getElementById('absence-poznamka').value.trim();
+
+  if(!od||!doo){msgEl.innerHTML='<div class="alert alert-err">Zadaj dátumy.</div>';return;}
+  if(od>doo){msgEl.innerHTML='<div class="alert alert-err">Dátum Od musí byť pred Do.</div>';return;}
+
+  if(!w.absencie)w.absencie=[];
+  w.absencie.push({id:Date.now(),typ,od,do:doo,poznamka});
+  w.absencie.sort((a,b)=>a.od.localeCompare(b.od));
+
+  const widInt=parseInt(w.id);
+  const affectedJobs=S.jobs.filter(j=>{
+    if(j.done)return false;
+    if(!j.workerIds.some(i=>parseInt(i)===widInt))return false;
+    // Skontroluj skutočné sloty — nie endDate ktorý môže byť nepresný
+    return (j.schedule||[]).some(s=>parseInt(s.wid)===widInt&&s.date>=od&&s.date<=doo);
+  });
+
+  save();
+  document.getElementById('modal-absence').style.display='none';
+
+  if(affectedJobs.length){
+    // NEKVOLAJ renderAll pred otvorením modalu — prepíše display:none na modal-collision
+    _collisionJobs=[...affectedJobs];
+    _collisionWorker=w;
+    _collisionOd=od;
+    _collisionDo=doo;
+    _currentCollisionIdx=0;
+    renderCollisionStep();
+    document.getElementById('modal-collision').style.display='flex';
+  } else {
+    renderAll();
+    document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ Absencia uložená: ${w.name} · ${typ} ${fmtDate(od)}–${fmtDate(doo)}. Žiadne kolízie.</div>`;
+    nav('plan',document.querySelector('.nav-item'));
+  }
+}
+
+function removeAbsence(wid,idx){
+  const w=S.workers.find(x=>parseInt(x.id)===parseInt(wid));
+  if(!w||!w.absencie)return;
+  w.absencie.splice(idx,1);
+  save();renderWorkers();
+}
+
+// ── ABSENCIA KOLÍZIA ─────────────────────────────────────────────
+let _collisionJobs=[], _collisionWorker=null, _collisionOd=null, _collisionDo=null;
+let _currentCollisionIdx=0;
+
+function openAbsenceCollisionModal(jobs, worker, od, doo, typ){
+  _collisionJobs=jobs;
+  _collisionWorker=worker;
+  _collisionOd=od;
+  _collisionDo=doo;
+  _currentCollisionIdx=0;
+  renderCollisionStep();
+  document.getElementById('modal-collision').style.display='flex';
+}
+
+function renderCollisionStep(){
+  const j=_collisionJobs[_currentCollisionIdx];
+  const w=_collisionWorker;
+  const total=_collisionJobs.length;
+
+  document.getElementById('collision-progress').textContent=`Úloha ${_currentCollisionIdx+1} z ${total}`;
+  document.getElementById('collision-job-name').textContent=j.cinName;
+  document.getElementById('collision-job-meta').textContent=`${j.prof} · ${j.nh} Nh · do ${fmtDate(j.endDate)}`;
+
+  // Koľko hodín má pracovník počas absencie
+  const collisionNh=(j.schedule||[])
+    .filter(s=>parseInt(s.wid)===parseInt(w.id)&&s.date>=_collisionOd&&s.date<=_collisionDo)
+    .reduce((s,x)=>s+(x.endH-x.startH),0);
+  document.getElementById('collision-nh').textContent=`${w.name} má počas absencie naplánovaných ~${collisionNh.toFixed(1)} Nh na tejto úlohe.`;
+
+  // Nájdi voľných pracovníkov tej istej profesie počas absencie
+  const freeWorkers=S.workers.filter(x=>{
+    if(x.prof!==j.prof)return false;
+    if(parseInt(x.id)===parseInt(w.id))return false;
+    if(j.workerIds.map(i=>parseInt(i)).includes(parseInt(x.id)))return false;
+    // Má voľné hodiny počas absencie?
+    let free=0;
+    let d=_collisionOd;
+    while(d<=_collisionDo){
+      if(isWorkday(d,j.allowSat,j.allowSun)&&!isWorkerAbsent(x.id,d)){
+        const ivs=freeIntervalsOnDay(x.id,d,j.startH||6,x.hours||8,j.startH||6);
+        free+=ivs.reduce((s,iv)=>s+(iv.to-iv.from),0);
+      }
+      d=addDays(d,1);
+    }
+    return free>0.01;
+  });
+
+  const replaceSection=document.getElementById('collision-replace-section');
+  if(!freeWorkers.length){
+    replaceSection.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px 0">Žiadni voľní pracovníci s profesiou '+j.prof+' počas tohto obdobia.</div>';
+  } else {
+    replaceSection.innerHTML=`
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Vyber náhradníka</label>
+      <select id="collision-replace-sel" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:var(--font-body)">
+        <option value="">— vyber náhradníka —</option>
+        ${freeWorkers.map(fw=>`<option value="${fw.id}">${fw.name} (${fw.hours}h/deň)</option>`).join('')}
+      </select>`;
+  }
+}
+
+function resolveCollision(action){
+  const j=_collisionJobs[_currentCollisionIdx];
+  const w=_collisionWorker;
+  const widInt=parseInt(w.id);
+
+  if(action==='after'){
+    // Dorobiť po dovolenke — presuň sloty na deň po dovolenke
+    const afterDate=addDays(_collisionDo,1);
+    // Vypočítaj koľko Nh treba dorobiť
+    const remainingNh=(j.schedule||[])
+      .filter(s=>parseInt(s.wid)===widInt&&s.date>=_collisionOd)
+      .reduce((s,x)=>s+(x.endH-x.startH),0);
+    // Odstráň sloty počas absencie a po nej
+    j.schedule=(j.schedule||[]).filter(s=>!(parseInt(s.wid)===widInt&&s.date>=_collisionOd));
+    // Preplánuj od návratu z dovolenky
+    const dH=w.hours||8;
+    const {slots,endDate,endH}=scheduleWorker(widInt,remainingNh,afterDate,j.startH||6,j.startH||6,dH,j.allowSat,j.allowSun);
+    j.schedule=j.schedule.concat(slots);
+    // Aktualizuj koniec úlohy
+    const allEnds=j.workerIds.map(wid2=>{
+      const lastSlot=(j.schedule||[]).filter(s=>parseInt(s.wid)===parseInt(wid2)).sort((a,b)=>b.date.localeCompare(a.date)||b.endH-a.endH)[0];
+      return lastSlot?{date:lastSlot.date,h:lastSlot.endH}:{date:j.startDate,h:j.startH||6};
+    });
+    const latest=allEnds.reduce((mx,e)=>e.date>mx.date||(e.date===mx.date&&e.h>mx.h)?e:mx,allEnds[0]||{date:afterDate,h:j.startH||6});
+    j.endDate=latest.date;j.endH=latest.h;
+    j.workdays=new Set(j.schedule.map(s=>s.date)).size;
+
+  } else if(action==='replace'){
+    const newWid=parseInt(document.getElementById('collision-replace-sel')?.value||0);
+    if(!newWid){
+      document.getElementById('collision-msg').innerHTML='<div class="alert alert-err">Vyber náhradníka.</div>';
+      return;
+    }
+    const newW=S.workers.find(x=>parseInt(x.id)===newWid);
+    if(!newW)return;
+
+    // Koľko Nh treba prerozdeliť
+    const remainingNh=(j.schedule||[])
+      .filter(s=>parseInt(s.wid)===widInt&&s.date>=_collisionOd)
+      .reduce((s,x)=>s+(x.endH-x.startH),0);
+
+    // Ulož do pastWorkers
+    if(!j.pastWorkerIds)j.pastWorkerIds=[];
+    if(!j.pastWorkerNames)j.pastWorkerNames=[];
+    if(!j.pastWorkerUntil)j.pastWorkerUntil={};
+    if(!j.pastWorkerIds.map(x=>parseInt(x)).includes(widInt)){
+      j.pastWorkerIds.push(widInt);
+      j.pastWorkerNames.push(w.name);
+      j.pastWorkerUntil[widInt]=_collisionOd;
+    }
+
+    // Odstráň sloty odobratého od začiatku absencie
+    j.schedule=(j.schedule||[]).filter(s=>!(parseInt(s.wid)===widInt&&s.date>=_collisionOd));
+
+    // Odstráň z aktívnych
+    const wi=j.workerIds.findIndex(x=>parseInt(x)===widInt);
+    if(wi>=0){j.workerIds.splice(wi,1);j.workerNames.splice(wi,1);}
+
+    // Pridaj náhradníka
+    const dH=newW.hours||8;
+    const {slots,endDate,endH}=scheduleWorker(newWid,remainingNh,_collisionOd,j.startH||6,j.startH||6,dH,j.allowSat,j.allowSun);
+    j.schedule=j.schedule.concat(slots);
+    j.workerIds.push(newWid);
+    j.workerNames.push(newW.name);
+    j.pocet=j.workerIds.length;
+    if(endDate>j.endDate||(endDate===j.endDate&&endH>j.endH)){j.endDate=endDate;j.endH=endH;}
+    j.workdays=new Set(j.schedule.map(s=>s.date)).size;
+  }
+
+  save();renderAll();
+  document.getElementById('collision-msg').innerHTML='';
+
+  // Ďalšia kolízia alebo koniec
+  _currentCollisionIdx++;
+  if(_currentCollisionIdx<_collisionJobs.length){
+    renderCollisionStep();
+  } else {
+    document.getElementById('modal-collision').style.display='none';
+    document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ Všetky kolízie vyriešené (${_collisionJobs.length} úloh).</div>`;
+    nav('plan',document.querySelector('.nav-item'));
+  }
+}
+
+// Close absence modal on backdrop
+// ── PIN LOGIN & MASTERS ───────────────────────────────────────────
+const ADMIN_PIN='ADMIN2026';
+
+async function doLogin(){
+  const pin=document.getElementById('pin-input').value.trim().toUpperCase();
+  const errEl=document.getElementById('pin-error');
+  const btn=document.getElementById('btn-login');
+  if(!pin){errEl.textContent='Zadaj PIN.';return;}
+  btn.textContent='Načítavam...';btn.disabled=true;
+  if(pin===ADMIN_PIN){
+    currentUser={pin,role:'admin',name:'Admin',profesie:[]};
+    await startApp();return;
+  }
+  try{
+    if(!db){errEl.textContent='Chyba pripojenia.';btn.textContent='Vstúpiť';btn.disabled=false;return;}
+    const snap=await db.collection('workplan').doc('masters').get();
+    const masters=snap.exists?(snap.data().masters||[]):[];
+    const master=masters.find(m=>m.pin.toUpperCase()===pin);
+    if(master){
+      currentUser={pin,role:'master',name:master.name,profesie:master.profesie||[]};
+      await startApp();
+    }else{
+      errEl.textContent='Nesprávny PIN.';
+      document.getElementById('pin-input').value='';
+      document.getElementById('pin-input').focus();
+      btn.textContent='Vstúpiť';btn.disabled=false;
+    }
+  }catch(e){errEl.textContent='Chyba: '+e.message;btn.textContent='Vstúpiť';btn.disabled=false;}
+}
+
+async function startApp(){
+  const loaded=await loadFromFirestore();
+  if(!loaded)load();
+  document.getElementById('login-page').style.display='none';
+  startRealtimeSync();
+  renderUserBadge();
+  renderAll();
+}
+
+function canSeeProf(prof){
+  if(!currentUser||currentUser.role==='admin')return true;
+  if(!currentUser.profesie||!currentUser.profesie.length)return true;
+  return currentUser.profesie.map(String).includes(String(prof));
+}
+
+function renderUserBadge(){
+  const el=document.getElementById('sync-area');
+  if(!el||!currentUser)return;
+  const profLabel=currentUser.profesie&&currentUser.profesie.length?' · '+currentUser.profesie.join(', '):'';
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:11px;color:var(--text3)"><b style="color:var(--acc)">${currentUser.name}</b> · ${currentUser.role==='admin'?'Admin':'Majster'}${profLabel}</span>
+    <button onclick="logout()" style="background:none;border:1px solid var(--border);border-radius:5px;padding:3px 8px;color:var(--text3);font-size:11px;cursor:pointer">Odhlásiť</button>
+  </div>`;
+}
+
+function logout(){
+  currentUser=null;
+  document.getElementById('login-page').style.display='flex';
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-error').textContent='';
+  document.getElementById('btn-login').textContent='Vstúpiť';
+  document.getElementById('btn-login').disabled=false;
+  document.getElementById('sync-area').innerHTML='';
+}
+
+function renderMasters(){
+  const el=document.getElementById('masters-list');
+  if(!el)return;
+  const masters=S.masters||[];
+  if(!masters.length){el.innerHTML='<div style="color:var(--text3);font-size:13px">Žiadni majstri.</div>';return;}
+  el.innerHTML=masters.map((m,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+      <div style="flex:1">
+        <div style="font-weight:600;color:var(--text)">${m.name}</div>
+        <div style="font-size:11px;color:var(--text3)">PIN: <b style="font-family:var(--font-mono);color:var(--acc)">${m.pin}</b> · Profesie: ${m.profesie&&m.profesie.length?m.profesie.join(', '):'všetky'}</div>
+      </div>
+      <button onclick="editMaster(${i})" class="btn btn-outline btn-sm" style="font-size:10px">✏️</button>
+      <button onclick="deleteMaster(${i})" class="btn btn-danger btn-sm" style="font-size:10px">✕</button>
+    </div>`).join('');
+}
+
+function addMaster(){
+  const name=document.getElementById('master-name').value.trim();
+  const pin=document.getElementById('master-pin').value.trim().toUpperCase();
+  const profesie=document.getElementById('master-profesie').value.trim().split(',').map(p=>p.trim()).filter(Boolean);
+  if(!name||!pin){alert('Zadaj meno a PIN.');return;}
+  if(!S.masters)S.masters=[];
+  if(S.masters.find(m=>m.pin===pin)){alert('PIN už existuje.');return;}
+  S.masters.push({name,pin,profesie});
+  save();renderMasters();
+  document.getElementById('master-name').value='';
+  document.getElementById('master-pin').value='';
+  document.getElementById('master-profesie').value='';
+}
+
+function deleteMaster(idx){if(!confirm('Odstrániť?'))return;S.masters.splice(idx,1);save();renderMasters();}
+
+function editMaster(idx){
+  const m=S.masters[idx];
+  const name=prompt('Meno:',m.name);if(name===null)return;
+  const pin=prompt('PIN:',m.pin);if(pin===null)return;
+  const prof=prompt('Profesie (čiarkou):',m.profesie.join(', '));
+  S.masters[idx]={name:name.trim(),pin:pin.trim().toUpperCase(),profesie:(prof||'').split(',').map(p=>p.trim()).filter(Boolean)};
+  save();renderMasters();
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  // Init Firebase
+  initFirebase();
+
+  // Focus PIN input
+  document.getElementById('pin-input')?.focus();
+
+  // Modal backdrop listeners
+  const modals=['modal-remove','modal-add','modal-absence','modal-collision','modal-assign','modal-theme'];
+  modals.forEach(id=>{
+    const m=document.getElementById(id);
+    if(m)m.addEventListener('click',function(e){if(e.target===this){if(id==='modal-remove'||id==='modal-add')closeModals();else this.style.display='none';}});
+  });
+});
+
+// ── TÉMY ─────────────────────────────────────────────────────────
+const THEMES = [
+  { id:'dark-amber',  name:'Dark Amber',   desc:'Tmavá + zlatá (default)',   preview:['#0d0d12','#13131c','#f0a500','#e8e8f0'] },
+  { id:'dark-teal',   name:'Dark Teal',    desc:'Tmavá + tyrkysová',         preview:['#090f12','#0f1a1f','#22d3ee','#d8f0f4'] },
+  { id:'dark-slate',  name:'Dark Slate',   desc:'Tmavá + oranžová (GitHub)', preview:['#0d1117','#161b22','#f78166','#e6edf3'] },
+  { id:'light',       name:'Light Pro',    desc:'Svetlá profesionálna',      preview:['#f0f2f7','#ffffff','#2563eb','#1a2340'] },
+  { id:'light-warm',  name:'Light Warm',   desc:'Svetlá teplá',              preview:['#faf8f5','#ffffff','#c2500a','#2d2218'] },
+  { id:'light-cool',  name:'Light Cool',   desc:'Svetlá studená',            preview:['#f4f7fa','#ffffff','#0891b2','#1a2a3a'] },
+];
+
+function applyTheme(id){
+  if(id==='dark-amber'){
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', id);
+  }
+  localStorage.setItem('wplan_theme', id);
+  renderThemeGrid();
+}
+
+function openThemePicker(){
+  renderThemeGrid();
+  document.getElementById('modal-theme').style.display='flex';
+}
+
+function renderThemeGrid(){
+  const current=localStorage.getItem('wplan_theme')||'dark-amber';
+  const el=document.getElementById('theme-grid');
+  if(!el)return;
+  el.innerHTML=THEMES.map(t=>{
+    const active=t.id===current;
+    return `<div onclick="applyTheme('${t.id}')" style="
+      cursor:pointer;border-radius:10px;overflow:hidden;
+      border:2px solid ${active?'var(--acc)':'var(--border)'};
+      transition:all 0.15s;transform:${active?'scale(1.03)':'scale(1)'}">
+      <!-- Preview swatch -->
+      <div style="height:52px;display:flex">
+        <div style="flex:1;background:${t.preview[0]}"></div>
+        <div style="flex:1;background:${t.preview[1]}"></div>
+        <div style="flex:0.6;background:${t.preview[2]}"></div>
+        <div style="flex:0.4;background:${t.preview[3]}"></div>
+      </div>
+      <div style="padding:8px 10px;background:var(--bg3)">
+        <div style="font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px">
+          ${active?'<span style="color:var(--acc)">✓</span>':''}${t.name}
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:1px">${t.desc}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Načítaj tému pri štarte
+(function initTheme(){
+  const saved=localStorage.getItem('wplan_theme');
+  if(saved&&saved!=='dark-amber') document.documentElement.setAttribute('data-theme', saved);
+})();
+
+document.getElementById('modal-theme').addEventListener('click',function(e){if(e.target===this)this.style.display='none';});
+
+// ── PRIRADENIA Z EXCELU ──────────────────────────────────────────
+// S.cinAssignments = { 'LO561760': ['Hamrák','Horváth',...], ... }
+// Načíta sa z špeciálneho formátu Excel súboru
+
+function importAssignments(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+      const assignments={};
+      wb.SheetNames.forEach(sheetName=>{
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:null});
+        let currentName=null;
+        rows.forEach(row=>{
+          if(row[0])currentName=String(row[0]).trim(); // Meno pracovníka
+          const cid=row[2]?String(row[2]).trim():null;
+          if(cid&&currentName){
+            if(!assignments[cid])assignments[cid]=[];
+            if(!assignments[cid].includes(currentName))
+              assignments[cid].push(currentName);
+          }
+        });
+      });
+      S.cinAssignments=assignments;
+      save();
+      const total=Object.keys(assignments).length;
+      const workers=new Set(Object.values(assignments).flat()).size;
+      document.getElementById('assign-import-msg').innerHTML=
+        `<div class="alert alert-ok">✓ Načítané priradenia: ${total} činností, ${workers} pracovníkov.</div>`;
+    }catch(e){
+      document.getElementById('assign-import-msg').innerHTML=
+        `<div class="alert alert-err">Chyba: ${e.message}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── ASSIGN MODAL ─────────────────────────────────────────────────
+function openAssignModal(){
+  const msgEl=document.getElementById('assign-msg');
+  msgEl.innerHTML='';
+
+  // 1. Cin
+  const cinId=document.getElementById('cin-select').value;
+  if(!cinId){msgEl.innerHTML='<div class="alert alert-err">Vyber činnosť.</div>';return;}
+  const cin=S.cinnosti.find(c=>String(c.id)===String(cinId));
+  if(!cin){msgEl.innerHTML='<div class="alert alert-err">Činnosť nenájdená.</div>';return;}
+
+  // 2. Dátum
+  const startDateRaw=document.getElementById('startDate').value;
+  if(!startDateRaw){msgEl.innerHTML='<div class="alert alert-err">Zadaj dátum začiatku.</div>';return;}
+
+  // 3. Ostatné parametre
+  const startTimeStr=document.getElementById('startTime').value||'06:00';
+  const nhRaw=parseFloat(document.getElementById('nh-val').value);
+  const nh=nhRaw>0?nhRaw:(cin.nh||8);
+  const pocet=parseInt(document.getElementById('pocet').value)||1;
+  const allowSat=document.getElementById('allow-sat').checked;
+  const allowSun=document.getElementById('allow-sun').checked;
+
+  _assignParams={cinId,cin,startDateRaw,startTimeStr,nh,pocet,allowSat,allowSun};
+
+  // 4. Nastav modal
+  document.getElementById('assign-modal-title').textContent='Priradiť: '+cin.name;
+  document.getElementById('assign-modal-sub').textContent=cin.prof+' · '+nh+' Nh · '+pocet+' pracovník'+(pocet>1?'ia/ov':'');
+  document.getElementById('assign-modal-msg').innerHTML='';
+
+  // 5. Automatický návrh
+  const knownWorkers=(S.cinAssignments&&S.cinAssignments[cin.cid])||[];
+  const profWorkers=S.workers.filter(w=>w.prof===cin.prof);
+  const parts=startTimeStr.split(':').map(Number);
+  const startH=parts[0]+((parts[1]||0)/60);
+
+  // Nájdi voľných + vypočítaj ich kapacitu pre zoradenie
+  const suggestedWithFree=profWorkers.map(w=>{
+    if(knownWorkers.length>0){
+      const wParts=w.name.toLowerCase().split(/\s+/);
+      const match=knownWorkers.some(n=>{
+        const nl=n.toLowerCase().trim();
+        return wParts.some(p=>p===nl)||w.name.toLowerCase().includes(nl)||nl.includes(w.name.toLowerCase());
+      });
+      if(!match)return null;
+    }
+    // Počítaj kapacitu len v relevantnom okne (trvanie úlohy + 3 dni buffer)
+    const nhPerWorker=nh/Math.max(1,pocet);
+    const workDaysNeeded=Math.ceil(nhPerWorker/(w.hours||8));
+    // Počítaj presne toľko PRACOVNÝCH dní koľko treba (preskočí víkendy)
+    let free=0, workDaysSeen=0, i=0;
+    while(workDaysSeen<workDaysNeeded&&i<60){
+      const d=addDays(startDateRaw,i++);
+      if(!isWorkday(d,allowSat,allowSun)||isWorkerAbsent(w.id,d))continue;
+      const ivs=freeIntervalsOnDay(w.id,d,6,w.hours||8,6);
+      free+=ivs.reduce((s,iv)=>s+(iv.to-iv.from),0);
+      workDaysSeen++;
+    }
+    return free>0.1?{w,free}:null;
+  }).filter(Boolean);
+
+  // Zoraď od najvoľnejšieho
+  suggestedWithFree.sort((a,b)=>b.free-a.free);
+  const suggested=suggestedWithFree.map(x=>x.w);
+
+  const autoContent=document.getElementById('assign-auto-content');
+  const btnAuto=document.getElementById('btn-auto-confirm');
+
+  if(knownWorkers.length===0){
+    autoContent.innerHTML='<div style="color:var(--text3)">Žiadne priradenia pre kód <b>'+cin.cid+'</b>. Importuj súbor s priradeniami.</div>';
+    btnAuto.disabled=true;btnAuto.style.opacity='0.5';
+  } else if(suggested.length===0){
+    autoContent.innerHTML='<div style="color:var(--red)">⚠ Žiadny voľný pracovník z navrhnutých ('+knownWorkers.join(', ')+').<br>Použi manuálny výber.</div>';
+    btnAuto.disabled=true;btnAuto.style.opacity='0.5';
+  } else {
+    const take=suggested.slice(0,pocet);
+    autoContent.innerHTML='<div style="margin-bottom:6px;color:var(--text3)">Táto činnosť patrí: <b style="color:var(--text)">'+knownWorkers.join(', ')+'</b></div>'+
+      take.map(w=>'<div style="display:flex;align-items:center;gap:8px;padding:4px 0">'+
+        '<span class="avatar av-'+profClass(w.prof)+'" style="width:24px;height:24px;font-size:9px">'+initials(w.name)+'</span>'+
+        '<span style="font-weight:600;color:var(--text)">'+w.name+'</span>'+
+        '<span style="font-size:10px;color:var(--text3)">'+w.hours+'h/deň</span>'+
+      '</div>').join('')+
+      (suggested.length<pocet?'<div style="color:var(--acc);font-size:11px;margin-top:4px">⚠ Dostupných len '+suggested.length+' z '+pocet+' požadovaných.</div>':'');
+    btnAuto.disabled=false;btnAuto.style.opacity='1';
+  }
+
+  // 6. Manuálny výber
+  const manualList=document.getElementById('assign-manual-list');
+  document.getElementById('assign-manual-info').textContent=
+    profWorkers.length>0
+      ? `Vyber pracovníkov (${profWorkers.length} dostupných) — klikni na riadok`
+      : `⚠ Žiadni pracovníci s profesiou ${cin.prof}`;
+
+  let rows='';
+  profWorkers.forEach((w)=>{
+    const wParts=w.name.toLowerCase().split(/\s+/);
+    const isSuggested=knownWorkers.some(n=>{
+      const nl=n.toLowerCase().trim();
+      return wParts.some(p=>p===nl)||w.name.toLowerCase().includes(nl);
+    });
+    const isAutoSel=suggested.slice(0,pocet).some(s=>parseInt(s.id)===parseInt(w.id));
+    rows+=`<div id="mrow_${w.id}"
+      onclick="toggleManualWorker(${w.id})"
+      style="display:flex;align-items:center;gap:10px;padding:9px 12px;
+        border-radius:8px;cursor:pointer;margin-bottom:4px;
+        border:2px solid ${isAutoSel?'var(--acc)':'var(--border)'};
+        background:${isAutoSel?'rgba(240,165,0,0.12)':'var(--bg3)'}">
+      <div style="width:18px;height:18px;border-radius:4px;border:2px solid ${isAutoSel?'var(--acc)':'var(--text3)'};
+        background:${isAutoSel?'var(--acc)':'transparent'};flex-shrink:0;display:flex;align-items:center;justify-content:center">
+        ${isAutoSel?'<span style="color:#000;font-size:12px;font-weight:900;line-height:1">✓</span>':''}
+      </div>
+      <span class="avatar av-${profClass(w.prof)}" style="width:24px;height:24px;font-size:9px;flex-shrink:0">${initials(w.name)}</span>
+      <span style="font-weight:600;color:var(--text);flex:1">${w.name}</span>
+      ${isSuggested?'<span style="font-size:9px;color:var(--acc);font-weight:600">★</span>':''}
+      <span style="font-size:10px;color:var(--text3)">${w.hours}h/deň</span>
+      <input type="checkbox" value="${w.id}" class="manual-worker-check" ${isAutoSel?'checked':''} style="display:none">
+    </div>`;
+  });
+  manualList.innerHTML=rows;
+
+  // 7. Otvor modal
+  document.getElementById('modal-assign').style.display='flex';
+}
+
+
+function confirmAutoAssign(){
+  if(!_assignParams)return;
+  const{cin,startDateRaw,startTimeStr,nh,pocet,allowSat,allowSun}=_assignParams;
+  const knownWorkers=(S.cinAssignments&&S.cinAssignments[cin.cid])||[];
+  const profWorkers=S.workers.filter(w=>w.prof===cin.prof);
+
+  const suggested=profWorkers.map(w=>{
+    if(knownWorkers.length>0){
+      const wParts=w.name.toLowerCase().split(/\s+/);
+      const match=knownWorkers.some(n=>{
+        const nl=n.toLowerCase().trim();
+        return wParts.some(p=>p===nl)||w.name.toLowerCase().includes(nl)||nl.includes(w.name.toLowerCase());
+      });
+      if(!match)return null;
+    }
+    // Počítaj kapacitu len v relevantnom okne (trvanie úlohy + 3 dni buffer)
+    const nhPerWorker=nh/Math.max(1,pocet);
+    const workDaysNeeded=Math.ceil(nhPerWorker/(w.hours||8));
+    // Počítaj presne toľko PRACOVNÝCH dní koľko treba (preskočí víkendy)
+    let free=0, workDaysSeen=0, i=0;
+    while(workDaysSeen<workDaysNeeded&&i<60){
+      const d=addDays(startDateRaw,i++);
+      if(!isWorkday(d,allowSat,allowSun)||isWorkerAbsent(w.id,d))continue;
+      const ivs=freeIntervalsOnDay(w.id,d,6,w.hours||8,6);
+      free+=ivs.reduce((s,iv)=>s+(iv.to-iv.from),0);
+      workDaysSeen++;
+    }
+    return free>0.1?{w,free}:null;
+  }).filter(Boolean).sort((a,b)=>b.free-a.free).map(x=>x.w).slice(0,pocet);
+
+  document.getElementById('modal-assign').style.display='none';
+  _doAssign(suggested);
+}
+
+function toggleManualWorker(wid){
+  const row=document.getElementById('mrow_'+wid);
+  const cb=row.querySelector('input[type="checkbox"]');
+  const box=row.querySelector('div[style*="border-radius:4px"]');
+  cb.checked=!cb.checked;
+  if(cb.checked){
+    row.style.border='2px solid var(--acc)';
+    row.style.background='rgba(240,165,0,0.12)';
+    box.style.background='var(--acc)';
+    box.style.borderColor='var(--acc)';
+    box.innerHTML='<span style="color:#000;font-size:12px;font-weight:900;line-height:1">✓</span>';
+  } else {
+    row.style.border='2px solid var(--border)';
+    row.style.background='var(--bg3)';
+    box.style.background='transparent';
+    box.style.borderColor='var(--text3)';
+    box.innerHTML='';
+  }
+}
+
+function confirmManualAssign(){
+  if(!_assignParams)return;
+  const checked=[...document.querySelectorAll('.manual-worker-check:checked')];
+  if(!checked.length){
+    document.getElementById('assign-modal-msg').innerHTML='<div class="alert alert-err">Vyber aspoň jedného pracovníka.</div>';
+    return;
+  }
+  const workers=checked.map(cb=>S.workers.find(w=>parseInt(w.id)===parseInt(cb.value))).filter(Boolean);
+  document.getElementById('modal-assign').style.display='none';
+  _doAssign(workers);
+}
+
+function _doAssign(chosen){
+  // Zavolaj pôvodný assignJob s konkrétnymi pracovníkmi
+  if(!_assignParams||!chosen.length)return;
+  const{cinId,cin,startDateRaw,startTimeStr,nh,pocet,allowSat,allowSun}=_assignParams;
+  const parts=startTimeStr.split(':').map(Number);
+  const startH=parts[0]+(parts[1]/60);
+  const msgEl=document.getElementById('assign-msg');
+
+  if(!isWorkday(startDateRaw,allowSat,allowSun)){
+    msgEl.innerHTML='<div class="alert alert-warn">Zvolený dátum je víkend.</div>';return;
+  }
+
+  // Rovnaký balancing algoritmus ako assignJob
+  let nhForWorker=chosen.map(()=>nh/chosen.length);
+  let finalSlots=[],latestEnd={date:startDateRaw,h:startH};
+
+  for(let iter=0;iter<6;iter++){
+    finalSlots=[];latestEnd={date:startDateRaw,h:startH};
+    chosen.forEach((w,wi)=>{
+      const dH=w.hours||8;
+      const{slots,endDate,endH}=scheduleWorker(w.id,nhForWorker[wi],startDateRaw,startH,startH,dH,allowSat,allowSun);
+      finalSlots.push({w,slots,endDate,endH});
+      if(endDate>latestEnd.date||(endDate===latestEnd.date&&endH>latestEnd.h))latestEnd={date:endDate,h:endH};
+    });
+    const freeH=chosen.map(w=>{
+      let f=0;
+      let d=startDateRaw;
+      for(let i=0;i<200;i++){
+        if(d>latestEnd.date)break;
+        if(isWorkday(d,allowSat,allowSun)&&!isWorkerAbsent(w.id,d)){
+          const ivs=freeIntervalsOnDay(w.id,d,startH,w.hours||8,startH);
+          const upTo=d===latestEnd.date?latestEnd.h:startH+(w.hours||8);
+          ivs.forEach(iv=>{const e=Math.min(iv.to,upTo);if(e>iv.from)f+=e-iv.from;});
+        }
+        d=addDays(d,1);
+      }
+      return Math.max(0.001,f);
+    });
+    const tf=freeH.reduce((s,h)=>s+h,0);
+    const newNh=chosen.map((_,wi)=>nh*(freeH[wi]/tf));
+    const diff=newNh.reduce((mx,v,i)=>Math.max(mx,Math.abs(v-nhForWorker[i])),0);
+    nhForWorker=newNh;
+    if(diff<0.05)break;
+  }
+
+  const schedule=[];
+  finalSlots.forEach(({w},wi)=>{
+    const dH=w.hours||8;
+    const{slots}=scheduleWorker(w.id,nhForWorker[wi],startDateRaw,startH,startH,dH,allowSat,allowSun);
+    schedule.push(...slots);
+  });
+
+  const job={
+    id:S.nextJobId++,cinId,cid:cin.cid,cinName:cin.name,
+    desc:cin.desc||'',prof:cin.prof,vp:cin.vp||'',zostava:cin.zostava||'',
+    nh,pocet:chosen.length,startDate:startDateRaw,startH,
+    endDate:latestEnd.date,endH:latestEnd.h,
+    nhPerWorker:nh/chosen.length,
+    workdays:new Set(schedule.map(s=>s.date)).size,
+    workerIds:chosen.map(w=>w.id),
+    workerNames:chosen.map(w=>w.name),
+    schedule,allowSat,allowSun,done:false,
+    nhPerWorkerActual:nhForWorker,
+  };
+  S.jobs.unshift(job);
+  save();renderAll();
+
+  msgEl.innerHTML=`<div class="alert alert-ok">
+    ✓ Naplánované: <b>${job.cinName}</b><br>
+    Pracovníci: ${chosen.map(w=>w.name).join(', ')}<br>
+    ${fmtDate(startDateRaw)} ${fmtH(startH)} → ${fmtDate(latestEnd.date)} ${fmtH(latestEnd.h)} · ${job.workdays} prac. dní
+  </div>`;
+  nav('plan',document.querySelector('.nav-item'));
+}
+
+
+document.getElementById('modal-remove').addEventListener('click',function(e){if(e.target===this)closeModals();});
+document.getElementById('modal-add').addEventListener('click',function(e){if(e.target===this)closeModals();});
+</script>
+
+<!-- MODAL: Remove worker -->
+<div id="modal-remove" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:490px;max-width:95vw">
+    <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px" id="modal-remove-title">Odobrať pracovníka</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px" id="modal-remove-sub"></div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Dátum odobrania (od kedy nevyrába)</label>
+      <input type="date" id="modal-remove-date" oninput="updateRemoveInfo()" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:var(--font-body)">
+      <div style="font-size:11px;color:var(--acc);margin-top:5px;min-height:16px" id="modal-remove-nhinfo"></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:8px">Čo urobiť so zostatok Nh?</label>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
+          <input type="radio" name="remove-action" value="replace" style="margin-top:3px;accent-color:var(--acc)" checked>
+          <div><div style="font-size:12px;font-weight:600;color:var(--text)">Nahradiť iným pracovníkom</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Systém nájde voľného pracovníka tej istej profesie a pridelí mu zostatok Nh</div></div>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
+          <input type="radio" name="remove-action" value="remove" style="margin-top:3px;accent-color:var(--acc)">
+          <div><div style="font-size:12px;font-weight:600;color:var(--text)">Odobrať</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px" id="modal-remove-desc">Ak pracoval sám — zostatok ostane nepridelený. Ak mal kolegu — zostatok sa automaticky rozdelí medzi ostatných.</div></div>
+        </label>
+      </div>
+    </div>
+    <div id="modal-remove-msg" style="margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" onclick="closeModals()">Zrušiť</button>
+      <button class="btn btn-accent btn-sm" onclick="confirmRemoveWorker()">Potvrdiť</button>
+    </div>
+  </div>
+
+    <!-- MASTERS PANEL (Admin only) -->
+    <div class="tab-panel" id="panel-masters">
+      <div class="card">
+        <div class="card-title">Správa majstrov</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:12px;align-items:end">
+          <div class="field"><label>Meno</label><input type="text" id="master-name" placeholder="Ján Kováč" style="width:100%"></div>
+          <div class="field"><label>PIN</label><input type="text" id="master-pin" placeholder="MS2320" style="width:100%;font-family:var(--font-mono)"></div>
+          <div class="field"><label>Profesie (čiarkou)</label><input type="text" id="master-profesie" placeholder="2320, 2324" style="width:100%"></div>
+          <button class="btn btn-accent btn-sm" onclick="addMaster()" style="height:36px">+ Pridať</button>
+        </div>
+        <div id="masters-list"></div>
+      </div>
+    </div>
+
+</div>
+
+<!-- MODAL: Add worker -->
+<div id="modal-add" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:490px;max-width:95vw">
+    <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px" id="modal-add-title">Pridať pracovníka k úlohe</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px" id="modal-add-sub"></div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Vyber pracovníka</label>
+      <select id="modal-add-worker" onchange="updateAddInfo()" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:var(--font-body)">
+        <option value="">— vyber pracovníka —</option>
+      </select>
+      <div style="font-size:11px;color:var(--text3);margin-top:5px;min-height:16px" id="modal-add-info"></div>
+    </div>
+    <div style="margin-bottom:12px" id="modal-add-start-section">
+      <label style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:8px">Odkedy začína nový pracovník?</label>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
+          <input type="radio" name="add-start" value="after" style="margin-top:3px;accent-color:var(--acc)" checked>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text)">Nadviazať kde prvý skončil</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="modal-add-after-label">Nový začne od dátumu odobrania predchádzajúceho</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
+          <input type="radio" name="add-start" value="from" style="margin-top:3px;accent-color:var(--acc)">
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600;color:var(--text)">Zadať iný dátum</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+              <input type="date" id="modal-add-start-date" style="padding:5px 8px;background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:var(--font-body)" oninput="updateAddInfo()">
+            </div>
+          </div>
+        </label>
+      </div>
+    </div>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text2)" id="modal-add-summary"></div>
+    <div id="modal-add-msg" style="margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" onclick="closeModals()">Zrušiť</button>
+      <button class="btn btn-accent btn-sm" onclick="confirmAddWorker()">Pridať</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Absencia -->
+<div id="modal-absence" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:440px;max-width:95vw">
+    <input type="hidden" id="absence-wid" value="">
+    <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:14px" id="modal-absence-title">Pridať absenciu</div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div class="field" style="flex:1">
+        <label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Typ</label>
+        <select id="absence-typ" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:var(--font-body)">
+          <option value="Dovolenka">🏖 Dovolenka</option>
+          <option value="PN">🤒 PN</option>
+          <option value="Iné">📋 Iné</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div class="field" style="flex:1">
+        <label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Od</label>
+        <input type="date" id="absence-od" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:var(--font-body)">
+      </div>
+      <div class="field" style="flex:1">
+        <label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Do</label>
+        <input type="date" id="absence-do" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:var(--font-body)">
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Poznámka (voliteľné)</label>
+      <input type="text" id="absence-poznamka" placeholder="napr. plánovaná operácia" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:var(--font-body)">
+    </div>
+    <div id="modal-absence-msg" style="margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-absence').style.display='none'">Zrušiť</button>
+      <button class="btn btn-accent btn-sm" onclick="confirmAbsence()">Uložiť</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Téma -->
+<div id="modal-theme" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:420px;max-width:95vw">
+    <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px">🎨 Vyber tému</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px" id="theme-grid"></div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-theme').style.display='none'">Zatvoriť</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
+<div id="modal-collision" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:210;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:500px;max-width:95vw">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--red)">⚠ Kolízia s absenciou</div>
+      <span style="font-size:11px;color:var(--text3)" id="collision-progress"></span>
+    </div>
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px" id="collision-job-name"></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px" id="collision-job-meta"></div>
+    <div style="font-size:12px;color:var(--acc);margin-bottom:14px;padding:8px 10px;background:rgba(240,165,0,0.08);border-radius:6px;border:1px solid rgba(240,165,0,0.2)" id="collision-nh"></div>
+
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+      <!-- Option 1: After -->
+      <div style="padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px">📅 Dorobiť po dovolenke</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">Pracovník dorobí zvyšné hodiny po návrate — posunie sa koniec úlohy</div>
+        <button class="btn btn-outline btn-sm" onclick="resolveCollision('after')" style="width:100%">Použiť túto možnosť</button>
+      </div>
+
+      <!-- Option 2: Replace -->
+      <div style="padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px">👤 Nahradiť iným pracovníkom</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">Voľný pracovník prevezme hodiny počas absencie</div>
+        <div id="collision-replace-section"></div>
+        <button class="btn btn-accent btn-sm" onclick="resolveCollision('replace')" style="width:100%;margin-top:8px">Nahradiť</button>
+      </div>
+    </div>
+
+    <div id="collision-msg" style="margin-bottom:8px"></div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-collision').style.display='none'">Zatvoriť</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: Výber spôsobu priradenia -->
+<div id="modal-assign" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px" id="assign-modal-title">Priradiť pracovníkov</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px" id="assign-modal-sub"></div>
+    <div id="assign-auto-section" style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">🤖 Automatický návrh</div>
+      <div id="assign-auto-content" style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2)"></div>
+      <button id="btn-auto-confirm" class="btn btn-accent btn-sm" onclick="confirmAutoAssign()" style="margin-top:8px;width:100%">Priradiť navrhnutých</button>
+    </div>
+    <div style="text-align:center;color:var(--text3);font-size:11px;margin:10px 0">— alebo —</div>
+    <div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">👤 Manuálny výber</div>
+      <div id="assign-manual-list" style="display:flex;flex-direction:column;gap:4px;max-height:250px;overflow-y:auto;padding:4px"></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px" id="assign-manual-info"></div>
+      <button class="btn btn-outline btn-sm" onclick="confirmManualAssign()" style="margin-top:8px;width:100%">Priradiť vybraných</button>
+    </div>
+    <div id="assign-modal-msg" style="margin-top:10px"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-assign').style.display='none'">Zrušiť</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -2449,13 +2449,27 @@ async function saveNow(){
   clearTimeout(_saveTimer);
   window._localSaving=true;
   try{
-    await db.collection('workplan').doc('meta').set({
-      cinnosti:S.cinnosti||[],vpList:S.vpList||[],
+    const metaData={cinnosti:S.cinnosti||[],vpList:S.vpList||[],
       cinAssignments:S.cinAssignments||{},nextCinId:S.nextCinId||1,
-      updatedAt:Date.now()
-    });
-    console.log('saveNow: cinnosti saved, count=',S.cinnosti.length);
-  }catch(e){console.warn('saveNow error:',e);}
+      updatedAt:Date.now()};
+    const metaSize=JSON.stringify(metaData).length;
+    console.log('saveNow: saving meta, size=',metaSize,'bytes, cinnosti=',S.cinnosti.length);
+    if(metaSize>900000){
+      // Príliš veľké - ulož len zoznam zmazaných ID
+      console.warn('saveNow: meta too large, storing deletedIds instead');
+      await db.collection('workplan').doc('meta').set({
+        cinnosti:S.cinnosti||[],vpList:S.vpList||[],
+        cinAssignments:S.cinAssignments||{},nextCinId:S.nextCinId||1,
+        updatedAt:Date.now()
+      },{merge:false});
+    } else {
+      await db.collection('workplan').doc('meta').set(metaData,{merge:false});
+    }
+    console.log('saveNow: OK');
+  }catch(e){
+    console.error('saveNow FAILED:',e.code, e.message);
+    alert('Chyba ukladania: '+e.message);
+  }
   finally{setTimeout(()=>{window._localSaving=false;},2000);}
 }
 

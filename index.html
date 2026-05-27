@@ -8,8 +8,7 @@
 <script>
 // Load XLSX - try local first, fallback to CDN
 (function(){
-  function loadScript(src, cb){\n  <!-- Firebase SDK -->\n  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  function loadScript(src, cb){
     var s=document.createElement('script');s.src=src;
     s.onload=cb;s.onerror=function(){cb(new Error('failed'))};
     document.head.appendChild(s);
@@ -17,11 +16,12 @@
   loadScript('xlsx.full.min.js', function(err){
     if(err) loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', function(){});
   });
-  loadScript('msal-browser.min.js', function(err){
-    if(err) loadScript('https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js', function(){});
-  });
 })();
 </script>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -207,7 +207,6 @@ input[type=date],input[type=time]{color-scheme:dark}
 .job-card{animation:fadeIn 0.18s ease}
 @media(max-width:768px){.shell{grid-template-columns:1fr}.sidebar{display:none}.stats-bar{grid-template-columns:repeat(2,1fr)}}
 
-/* OneDrive sync */
 .sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block}
 .sync-dot.synced{background:#22c55e}
 .sync-dot.syncing{background:#f0a500;animation:pulse 1s infinite}
@@ -2340,145 +2339,7 @@ function exportAll(){
 // ═══════════════════════════════════════════════════════════════════
 // ONEDRIVE SYNC
 // ═══════════════════════════════════════════════════════════════════
-const OD_CLIENT_ID='e3f56150-7b89-41ae-a40f-8921a57fa262';
-const OD_TENANT_ID='95474b64-2f58-485b-a18a-25cf0dd0fe7e';
-const OD_SCOPES=['Files.ReadWrite','User.Read'];
-// SharePoint tímová lokalita — všetci členovia majú prístup
-const SP_SHARE_ID='u!aHR0cHM6Ly96b3Nzay1teS5zaGFyZXBvaW50LmNvbS86dTovZy9wZXJzb25hbC9lcmlrX2FzY2hlbmdlc2Nod2FuZHRuZXJfem9zX3NrL0lRQS1UMkJMXzRiUlNJWXd4Q3FyNkZHTEFmWEh6ZEQ0TlZESFlyYVZnMDJOcmNBP2U9UkpUZGR1';
-const SP_META_URL=`https://graph.microsoft.com/v1.0/shares/${SP_SHARE_ID}/driveItem`;
-const SP_CONTENT_URL=`https://graph.microsoft.com/v1.0/shares/${SP_SHARE_ID}/driveItem/content`;
-let SP_WRITE_URL=null; // resolved after first load
-let msalApp=null, msalAccount=null, syncEnabled=false, lastEtag=null, saveTimer=null;
 
-function odSetStatus(state,label){
-  const el=document.getElementById('sync-area');
-  if(!el)return;
-  if(state==='hidden'){el.innerHTML='';return;}
-  el.innerHTML=`<span class="sync-dot ${state}"></span><span class="sync-label">${label}</span>`;
-}
-
-function odSetUser(account){
-  const el=document.getElementById('sync-area');
-  if(!el||!account)return;
-  const name=account.name||account.username||'';
-  const ini=name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
-  const first=name.split(' ')[0]||name;
-  el.innerHTML=`
-    <span class="sync-dot synced"></span>
-    <div class="user-chip">
-      <div class="user-av">${ini}</div>
-      <span>${first}</span>
-      <button onclick="odLogout()" style="background:none;border:none;color:#5a5a72;cursor:pointer;font-size:10px;padding:0 0 0 4px" title="Odhlásiť">✕</button>
-    </div>`;
-}
-
-async function odGetToken(){
-  if(!msalApp||!msalAccount)return null;
-  try{
-    const r=await msalApp.acquireTokenSilent({scopes:OD_SCOPES,account:msalAccount});
-    return r.accessToken;
-  }catch(e){
-    try{const r=await msalApp.acquireTokenPopup({scopes:OD_SCOPES,account:msalAccount});return r.accessToken;}
-    catch(e2){return null;}
-  }
-}
-
-
-async function odLoad(){
-  odSetStatus('syncing','Načítavam...');
-  const token=await odGetToken();
-  if(!token){odSetStatus('error','Token chyba');return;}
-  try{
-    // Read via shared link
-    const r=await fetch(SP_CONTENT_URL,{headers:{Authorization:`Bearer ${token}`}});
-    if(r.status===404){await odSaveNow();return;}
-    if(!r.ok){odSetStatus('error','Chyba čítania '+r.status);return;}
-    lastEtag=r.headers.get('ETag')||r.headers.get('etag')||null;
-    const remote=await r.json();
-    if(remote&&typeof remote==='object'&&(remote.nextJobId||0)>=(S.nextJobId||0)){
-      S=remote;
-      try{localStorage.setItem('wplan4',JSON.stringify(S));}catch(e){}
-      renderAll();
-    }
-    // Resolve write URL (driveId + itemId) for all users
-    if(!SP_WRITE_URL){
-      const m=await fetch(SP_META_URL,{headers:{Authorization:`Bearer ${token}`}});
-      if(m.ok){
-        const meta=await m.json();
-        const driveId=meta.parentReference&&meta.parentReference.driveId;
-        const itemId=meta.id;
-        if(driveId&&itemId) SP_WRITE_URL=`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/content`;
-      }
-    }
-    odSetUser(msalAccount);
-  }catch(e){odSetStatus('error','Chyba: '+e.message);}
-}
-
-async function odSaveNow(){
-  if(!syncEnabled)return;
-  const token=await odGetToken();
-  if(!token)return;
-  // Need write URL - load first if not resolved
-  if(!SP_WRITE_URL){await odLoad();return;}
-  odSetStatus('syncing','Ukladám...');
-  try{
-    const r=await fetch(SP_WRITE_URL,
-      {method:'PUT',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-       body:JSON.stringify(S)});
-    if(r.ok){const d=await r.json();lastEtag=d.eTag;odSetUser(msalAccount);}
-    else odSetStatus('error','Chyba ukladania '+r.status);
-  }catch(e){odSetStatus('error','Offline?');}
-}
-
-async function odPoll(){
-  if(!syncEnabled)return;
-  const token=await odGetToken();
-  if(!token)return;
-  try{
-    const r=await fetch(SP_META_URL,{headers:{Authorization:`Bearer ${token}`}});
-    if(!r.ok)return;
-    const meta=await r.json();
-    if(meta.eTag&&meta.eTag!==lastEtag){odLoad();}
-  }catch(e){}
-}
-
-async function odLogin(){
-  if(!msalApp)return;
-  try{
-    await msalApp.loginPopup({scopes:OD_SCOPES});
-    const accounts=msalApp.getAllAccounts();
-    if(accounts.length){msalAccount=accounts[0];syncEnabled=true;await odLoad();setInterval(odPoll,30000);}
-  }catch(e){
-    if(e.errorCode!=='user_cancelled') msalApp.loginRedirect({scopes:OD_SCOPES});
-  }
-}
-
-function odLogout(){
-  // Clear all MSAL cached tokens from localStorage
-  Object.keys(localStorage).forEach(k=>{
-    if(k.includes('msal')||k.includes('login')||k.includes('token')||k.includes(OD_CLIENT_ID)){
-      localStorage.removeItem(k);
-    }
-  });
-  sessionStorage.clear();
-  msalAccount=null;syncEnabled=false;msalApp=null;
-  odSetStatus('hidden','');
-  document.getElementById('sync-area').innerHTML=
-    `<button onclick="location.reload()" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.3);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">
-      Prihlásiť sa
-    </button>`;
-  setTimeout(()=>location.reload(), 500);
-}
-
-// Global helper - open in console: clearMSAL()
-function clearMSAL(){
-  Object.keys(localStorage).forEach(k=>{if(k.includes('msal')||k.includes(OD_CLIENT_ID))localStorage.removeItem(k);});
-  sessionStorage.clear();
-  location.reload();
-}
-
-// Patch save to also sync
-const _save=function(){try{localStorage.setItem('wplan4',JSON.stringify(S));}catch(e){}};
 function save(){
   try{localStorage.setItem('wplan4',JSON.stringify(S));}catch(e){}
   saveToFirestore();
@@ -2489,59 +2350,6 @@ function save(){
 // ═══════════════════════════════════════════════════════════════════
 // Dates will be set after login in startApp()
 
-// Init MSAL after short delay
-setTimeout(async ()=>{
-  try{
-    if(typeof msal==='undefined'){
-      // MSAL not loaded, show login button anyway
-      odSetStatus('hidden','');
-      document.getElementById('sync-area').innerHTML=
-        `<button onclick="alert('MSAL sa nenačítal. Skontroluj internetové pripojenie.')" style="background:rgba(239,68,68,0.1);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit">
-          Sync chyba
-        </button>`;
-      return;
-    }
-    const cfg={auth:{clientId:OD_CLIENT_ID,authority:`https://login.microsoftonline.com/${OD_TENANT_ID}`,redirectUri:window.location.href.split('#')[0]},cache:{cacheLocation:'localStorage'}};
-    msalApp=new msal.PublicClientApplication(cfg);
-    await msalApp.initialize();
-    // Handle redirect response
-    const resp=await msalApp.handleRedirectPromise();
-    if(resp&&resp.account){msalAccount=resp.account;syncEnabled=true;await odLoad();setInterval(odPoll,30000);return;}
-    // Check cached accounts
-    const accounts=msalApp.getAllAccounts();
-    if(accounts.length){
-      msalAccount=accounts[0];
-      // Try to get token silently first to check if it works
-      try{
-        await msalApp.acquireTokenSilent({scopes:OD_SCOPES,account:msalAccount});
-        syncEnabled=true;await odLoad();setInterval(odPoll,30000);return;
-      }catch(e){
-        // Token invalid/expired - clear cache
-        Object.keys(localStorage).forEach(k=>{if(k.includes('msal')||k.includes(OD_CLIENT_ID))localStorage.removeItem(k);});
-        sessionStorage.clear();
-        msalAccount=null;
-      }
-    }
-    // Not logged in - show button
-    document.getElementById('sync-area').innerHTML=
-      `<button onclick="odLogin()" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.3);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">
-        MS Login
-      </button>`;
-  }catch(e){
-    console.warn('MSAL init error:',e);
-  }
-},300);
-
-// ═══════════════════════════════════════════════════════════════════
-// REMOVE / ADD WORKER FROM JOB
-// ═══════════════════════════════════════════════════════════════════
-let _modalJobId=null, _modalWid=null;
-
-function closeModals(){
-  document.getElementById('modal-remove').style.display='none';
-  document.getElementById('modal-add').style.display='none';
-  _modalJobId=null; _modalWid=null;
-}
 
 // ── REMOVE WORKER ────────────────────────────────────────────────
 function openRemoveWorkerModal(jobId, wid){

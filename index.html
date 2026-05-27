@@ -88,7 +88,7 @@ body{min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--f
 .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .page-title{font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text)}
 .content{flex:1;padding:1.5rem;overflow-y:auto}
-.tab-panel{display:none}.tab-panel.active{display:block}
+.tab-panel{display:none}.tab-panel.active{display:block}.ext-panel{display:none}.ext-panel.active{display:block}
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem}
 .card-title{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:1rem}
 .card-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
@@ -255,9 +255,9 @@ input[type=date],input[type=time]{color-scheme:dark}
   <div class="nav-item" id="nav-workers" onclick="nav('workers',this)"><span class="nav-icon">◉</span> Pracovníci</div>
   <div class="nav-section" style="margin-top:0.5rem">Dáta</div>
   <div class="nav-item" id="nav-import" onclick="nav('import',this)"><span class="nav-icon">⇑</span> Import XLSX</div>
+  <div class="nav-item" id="nav-masters" onclick="nav('masters',this)" style="display:none"><span class="nav-icon">👥</span> THP</div>
   <div class="nav-item" id="nav-overview" onclick="nav('overview',this)" style="display:none"><span class="nav-icon">📊</span> Prehľad</div>
   <div class="nav-item" id="nav-remaining" onclick="nav('remaining',this)" style="display:none"><span class="nav-icon">⏳</span> Zostávajúce</div>
-  <div class="nav-item" id="nav-masters" onclick="nav('masters',this)" style="display:none"><span class="nav-icon">👥</span> Majstri</div>
   <div class="nav-item" id="nav-export" onclick="exportAll()"><span class="nav-icon">⇓</span> Export XLSX</div>
   <div class="sidebar-bottom">
     <div class="sidebar-stat">Pracovníci: <strong id="sb-w">0</strong></div>
@@ -300,7 +300,7 @@ input[type=date],input[type=time]{color-scheme:dark}
           </div>
           <div class="field" style="min-width:100px;max-width:120px">
             <label>Profesia</label>
-            <select id="plan-prof-select" onchange="onProfChange()" disabled><option value="">— profesia —</option></select>
+            <select id="plan-prof-select" onchange="onProfChange()" disabled style="width:100%;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:var(--font-body);cursor:pointer"><option value="">— profesia —</option></select>
           </div>
           <div class="field" style="flex:2;min-width:180px">
             <label>Činnosť</label>
@@ -520,38 +520,36 @@ input[type=date],input[type=time]{color-scheme:dark}
       </div>
     </div>
 
-
-    <!-- OVERVIEW PANEL (Manager) -->
-    <div class="tab-panel" id="panel-overview">
-      <div id="manager-overview-content"></div>
-    </div>
-
-    <!-- REMAINING PANEL (Manager) -->
-    <div class="tab-panel" id="panel-remaining">
-      <div id="manager-remaining-content"></div>
-    </div>
-
-    <!-- MASTERS PANEL (Admin only) -->
-    <div class="tab-panel" id="panel-masters">
-      <div class="card">
-        <div class="card-title">Správa majstrov</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:12px;align-items:end">
-          <div class="field"><label>Meno</label><input type="text" id="master-name" placeholder="Ján Kováč" style="width:100%"></div>
-          <div class="field"><label>PIN</label><input type="text" id="master-pin" placeholder="MS2320" style="width:100%;font-family:var(--font-mono)"></div>
-          <div class="field"><label>Rola</label>
-            <select id="master-role" style="width:100%;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
-              <option value="master">Majster</option>
-              <option value="manager">Manažér</option>
-            </select>
-          </div>
-          <div class="field"><label>Profesie (čiarkou)</label><input type="text" id="master-profesie" placeholder="2320, 2324" style="width:100%"></div>
-          <button class="btn btn-accent btn-sm" onclick="addMaster()" style="height:36px">+ Pridať</button>
-        </div>
-        <div id="masters-list"></div>
+<!-- MASTERS / THP PANEL -->
+<div class="ext-panel" id="panel-masters" style="display:none;padding:1.5rem">
+  <div class="card">
+    <div class="card-title">Správa THP pracovníkov</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:12px;align-items:end">
+      <div class="field"><label>Meno</label><input type="text" id="master-name" placeholder="Ján Kováč" style="width:100%"></div>
+      <div class="field"><label>PIN</label><input type="text" id="master-pin" placeholder="MS2320" style="width:100%;font-family:var(--font-mono)"></div>
+      <div class="field"><label>Rola</label>
+        <select id="master-role" style="width:100%;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+          <option value="master">Majster</option>
+          <option value="manager">Manažér</option>
+        </select>
       </div>
+      <div class="field"><label>Profesie (čiarkou)</label><input type="text" id="master-profesie" placeholder="2320, 2324" style="width:100%"></div>
+      <button class="btn btn-accent btn-sm" onclick="addMaster()" style="height:36px">+ Pridať</button>
     </div>
+    <div id="masters-list"></div>
+  </div>
+</div>
 
-    </div>
+<!-- OVERVIEW PANEL (Manager) -->
+<div class="ext-panel" id="panel-overview" style="display:none;padding:1.5rem">
+  <div id="manager-overview-content"></div>
+</div>
+
+<!-- REMAINING PANEL (Manager) -->
+<div class="ext-panel" id="panel-remaining" style="display:none;padding:1.5rem">
+  <div id="manager-remaining-content"></div>
+</div>
+
 
   </div>
 </div>
@@ -561,7 +559,7 @@ input[type=date],input[type=time]{color-scheme:dark}
 // ═══════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════
-const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'Majstri',overview:'Prehľad',remaining:'Zostávajúce činnosti'};
+const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'THP pracovníci'};
 let jobFilter='all';
 let _assignParams=null;
 let S={
@@ -602,6 +600,7 @@ function saveToFirestore(){
   if(!db||!currentUser)return;
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{
+    window._localSaving=true; // Blokuj listener počas ukladania
     try{
       // Meta + workers
       await db.collection('workplan').doc('meta').set({
@@ -633,6 +632,10 @@ function saveToFirestore(){
       batch.set(mastersRef,{masters:S.masters||[],updatedAt:Date.now()},{merge:true});
       await batch.commit();
     }catch(e){console.warn('Firestore save error:',e);}
+    finally{
+      // Uvoľni flag po uložení — počkaj 2s aby listener dostal nový stav
+      setTimeout(()=>{window._localSaving=false;},2000);
+    }
   },1500);
 }
 
@@ -681,6 +684,7 @@ function startRealtimeSync(){
   ['meta','workers'].forEach(doc=>{
     db.collection('workplan').doc(doc).onSnapshot(snap=>{
       if(!snap.exists)return;
+      if(window._localSaving)return; // Ignoruj počas lokálneho ukladania
       const d=snap.data();
       if(doc==='meta'){S.cinnosti=d.cinnosti||[];S.vpList=d.vpList||[];S.cinAssignments=d.cinAssignments||{};}
       if(doc==='workers'){S.workers=d.workers||[];}
@@ -689,13 +693,17 @@ function startRealtimeSync(){
   });
   // Sleduj VP dokumenty
   db.collection('workplan').onSnapshot(snap=>{
+    if(window._localSaving)return; // Ignoruj počas lokálneho ukladania
     const newJobs=[];let nextId=1;
     snap.forEach(doc=>{
       if(!doc.id.startsWith('vp_'))return;
       const d=doc.data();
       if(d.jobs){newJobs.push(...d.jobs);d.jobs.forEach(j=>{if(j.id>=nextId)nextId=j.id+1;});}
     });
-    if(newJobs.length>0||S.jobs.length>0){S.jobs=newJobs;S.nextJobId=nextId;renderAll();}
+    // Aktualizuj len ak sú dáta odlišné
+    const newJobsStr=JSON.stringify(newJobs.map(j=>j.id).sort());
+    const curJobsStr=JSON.stringify(S.jobs.map(j=>j.id).sort());
+    if(newJobsStr!==curJobsStr){S.jobs=newJobs;S.nextJobId=nextId;renderAll();}
   });
 }
 
@@ -1799,24 +1807,54 @@ function onZostavaChange(){
     profMap[p].total++;
   });
 
-  const profKeys=Object.keys(profMap).sort();
+  // Pre majstra — filtruj len jeho profesie a zamkni výber
+  const masterProfs=(!isAdmin()&&currentUser&&currentUser.profesie&&currentUser.profesie.length)
+    ?currentUser.profesie.map(String):null;
+
+  const filteredMap={};
+  Object.entries(profMap).forEach(([p,v])=>{
+    if(masterProfs&&!masterProfs.includes(String(p)))return;
+    filteredMap[p]=v;
+  });
+
+  const profKeys=Object.keys(filteredMap).sort();
+
   if(!profKeys.length){
-    profSel.innerHTML='<option value="">— všetky naplánované ✓ —</option>';
+    profSel.innerHTML='<option value="">— žiadne voľné činnosti —</option>';
     profSel.disabled=true;
     return;
   }
 
-  profKeys.forEach(p=>{
-    profSel.innerHTML+=`<option value="${p}">${p} (${profMap[p].total} činn.)</option>`;
-  });
-
-  // Auto-select if only one profesia
-  if(profKeys.length===1){
-    profSel.value=profKeys[0];
-    onProfChange();
+  // Ak je majster — skryj select label a nastav automaticky
+  if(masterProfs){
+    profSel.innerHTML='';
+    profKeys.forEach(p=>profSel.innerHTML+=`<option value="${p}">${p} (${filteredMap[p].total} činn.)</option>`);
+    if(profKeys.length===1){
+      // Jedna profesia - zamkni
+      profSel.value=profKeys[0];
+      profSel.disabled=true;
+      profSel.style.opacity='0.7';
+      profSel.style.cursor='not-allowed';
+      onProfChange();
+    } else {
+      // Viac profesií - nechaj vybrať s placeholder
+      profSel.innerHTML='<option value="">— vyber profesiu —</option>'+profKeys.map(p=>`<option value="${p}">${p} (${filteredMap[p].total} činn.)</option>`).join('');
+      profSel.disabled=false;
+      profSel.style.opacity='';
+      profSel.style.cursor='pointer';
+      profSel.value='';
+    }
+  } else {
+    profSel.disabled=false;
+    profSel.style.opacity='';
+    profSel.style.cursor='';
+    profKeys.forEach(p=>{
+      profSel.innerHTML+=`<option value="${p}">${p} (${filteredMap[p].total} činn.)</option>`;
+    });
+    if(profKeys.length===1){profSel.value=profKeys[0];onProfChange();}
   }
 
-  if(infoEl) infoEl.innerHTML=`<span style="color:var(--text3)">Zostava <strong style="color:var(--acc)">${zostava}</strong> — ${profKeys.length} profesi${profKeys.length===1?'a':'í'} · ${available.length} voľných činností</span>`;
+  if(infoEl) infoEl.innerHTML=`<span style="color:var(--text3)">Zostava <strong style="color:var(--acc)">${zostava}</strong> — ${available.length} voľných činností</span>`;
 }
 
 function onProfChange(){
@@ -2037,8 +2075,9 @@ function renderBasket(){
 
 function renderAll(){
   if(!currentUser)return;
+  if(!currentUser)return;
   renderStats();renderJobs();renderCinnosti();renderWorkers();renderCinSelect();renderVpManager();renderVpFilterPills();
-  renderMasters();renderOverview();renderRemaining();
+  renderMasters();
   // Show/hide admin nav
   const navMasters=document.getElementById('nav-masters');
   if(navMasters)navMasters.style.display=(currentUser&&currentUser.role==='admin')?'flex':'none';
@@ -2054,15 +2093,26 @@ function renderAll(){
 // NAV + CRUD
 // ═══════════════════════════════════════════════════════════════════
 function nav(tab,el){
+  // Hide all tab panels (inside content)
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  // Hide all external panels
+  document.querySelectorAll('.ext-panel').forEach(p=>p.style.display='none');
+  // Show the selected panel
   const panel=document.getElementById('panel-'+tab);
-  if(panel)panel.classList.add('active');
+  if(panel){
+    if(panel.classList.contains('ext-panel')){
+      panel.style.display='block';
+    } else {
+      panel.classList.add('active');
+    }
+  }
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
   document.getElementById('page-title').textContent=PAGES[tab]||tab;
   if(tab=='gantt')renderGantt();
   if(tab=='overview')renderOverview();
   if(tab=='remaining')renderRemaining();
+  if(tab=='masters')renderMasters();
 }
 function addWorker(){
   const name=document.getElementById('nw-name').value.trim();
@@ -3026,8 +3076,9 @@ function renderUserBadge(){
   const el=document.getElementById('sync-area');
   if(!el||!currentUser)return;
   const profLabel=currentUser.profesie&&currentUser.profesie.length?' · '+currentUser.profesie.join(', '):'';
+  const roleLabel=currentUser.role==='admin'?'Admin':currentUser.role==='manager'?'Manažér':'Majster';
   el.innerHTML=`<div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:11px;color:var(--text3)"><b style="color:var(--acc)">${currentUser.name}</b> · ${currentUser.role==='admin'?'Admin':'Majster'}${profLabel}</span>
+    <span style="font-size:11px;color:var(--text3)"><b style="color:var(--acc)">${currentUser.name}</b> · ${roleLabel}${profLabel}</span>
     <button onclick="logout()" style="background:none;border:1px solid var(--border);border-radius:5px;padding:3px 8px;color:var(--text3);font-size:11px;cursor:pointer">Odhlásiť</button>
   </div>`;
 }
@@ -3061,11 +3112,76 @@ function renderMasters(){
 function addMaster(){
   const name=document.getElementById('master-name').value.trim();
   const pin=document.getElementById('master-pin').value.trim().toUpperCase();
+  const profesie=document.getElementById('master-profesie').value.trim().split(',').map(p=>p.trim()).filter(Boolean);
+  if(!name||!pin){alert('Zadaj meno a PIN.');return;}
+  if(!S.masters)S.masters=[];
+  if(S.masters.find(m=>m.pin===pin)){alert('PIN už existuje.');return;}
+  S.masters.push({name,pin,profesie});
+  save();renderMasters();
+  document.getElementById('master-name').value='';
+  document.getElementById('master-pin').value='';
+  document.getElementById('master-profesie').value='';
+}
+
+function deleteMaster(idx){if(!confirm('Odstrániť?'))return;S.masters.splice(idx,1);save();renderMasters();}
+
+function editMaster(idx){
+  const m=S.masters[idx];
+  const name=prompt('Meno:',m.name);if(name===null)return;
+  const pin=prompt('PIN:',m.pin);if(pin===null)return;
+  const prof=prompt('Profesie (čiarkou):',m.profesie.join(', '));
+  S.masters[idx]={name:name.trim(),pin:pin.trim().toUpperCase(),profesie:(prof||'').split(',').map(p=>p.trim()).filter(Boolean)};
+  save();renderMasters();
+}
+
+
+// ── ROLES ─────────────────────────────────────────────────────────
+function isAdmin(){return currentUser&&currentUser.role==='admin';}
+function isManager(){return currentUser&&currentUser.role==='manager';}
+
+function applyRoleUI(){
+  const manager=isManager();
+  const admin=isAdmin();
+  const show=(id,v)=>{const e=document.getElementById(id);if(e)e.style.display=v?'flex':'none';};
+  show('nav-plan',!manager);
+  show('nav-cinnosti',!manager);
+  show('nav-workers',!manager);
+  show('nav-import',admin);
+  show('nav-export',!manager);
+  show('nav-masters',admin);
+  show('nav-overview',manager);
+  show('nav-remaining',manager);
+  if(manager)nav('overview',document.getElementById('nav-overview'));
+}
+
+// ── THP MASTERS ───────────────────────────────────────────────────
+function renderMasters(){
+  const el=document.getElementById('masters-list');
+  if(!el)return;
+  const masters=S.masters||[];
+  if(!masters.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:10px 0">Žiadni THP pracovníci. Pridaj prvého.</div>';return;}
+  el.innerHTML=masters.map((m,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:600;color:var(--text)">${m.name}</span>
+          <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${m.role==='manager'?'rgba(59,130,246,0.15)':'rgba(240,165,0,0.15)'};color:${m.role==='manager'?'#60a5fa':'var(--acc)'}">${m.role==='manager'?'Manažér':'Majster'}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">PIN: <b style="font-family:var(--font-mono);color:var(--acc)">${m.pin}</b> · Profesie: ${m.profesie&&m.profesie.length?m.profesie.join(', '):'všetky'}</div>
+      </div>
+      <button onclick="editMaster(${i})" class="btn btn-outline btn-sm" style="font-size:10px">✏️</button>
+      <button onclick="deleteMaster(${i})" class="btn btn-danger btn-sm" style="font-size:10px">✕</button>
+    </div>`).join('');
+}
+
+function addMaster(){
+  const name=document.getElementById('master-name').value.trim();
+  const pin=document.getElementById('master-pin').value.trim().toUpperCase();
   const role=document.getElementById('master-role')?.value||'master';
   const profesie=document.getElementById('master-profesie').value.trim().split(',').map(p=>p.trim()).filter(Boolean);
   if(!name||!pin){alert('Zadaj meno a PIN.');return;}
   if(!S.masters)S.masters=[];
-  if(S.masters.find(m=>m.pin===pin)){alert('PIN uz existuje.');return;}
+  if(S.masters.find(m=>m.pin===pin)){alert('PIN už existuje.');return;}
   S.masters.push({name,pin,role,profesie});
   save();renderMasters();
   document.getElementById('master-name').value='';
@@ -3073,40 +3189,19 @@ function addMaster(){
   document.getElementById('master-profesie').value='';
 }
 
-function deleteMaster(idx){if(!confirm('Odstranit?'))return;S.masters.splice(idx,1);save();renderMasters();}
+function deleteMaster(idx){if(!confirm('Odstrániť?'))return;S.masters.splice(idx,1);save();renderMasters();}
 
 function editMaster(idx){
   const m=S.masters[idx];
   const name=prompt('Meno:',m.name);if(name===null)return;
   const pin=prompt('PIN:',m.pin);if(pin===null)return;
   const role=prompt('Rola (master/manager):',m.role||'master');
-  const prof=prompt('Profesie (ciarkou):',m.profesie.join(', '));
+  const prof=prompt('Profesie (čiarkou):',m.profesie.join(', '));
   S.masters[idx]={name:name.trim(),pin:pin.trim().toUpperCase(),role:(role||'master').trim(),profesie:(prof||'').split(',').map(p=>p.trim()).filter(Boolean)};
   save();renderMasters();
 }
 
-// -- ROLE-BASED UI -------------------------------------------------
-function isManager(){return currentUser&&currentUser.role==='manager';}
-function isAdmin(){return currentUser&&currentUser.role==='admin';}
-
-function applyRoleUI(){
-  const manager=isManager();
-  const admin=isAdmin();
-  const show=(id,visible)=>{const el=document.getElementById(id);if(el)el.style.display=visible?'flex':'none';};
-  show('nav-plan',!manager);
-  show('nav-cinnosti',!manager);
-  show('nav-workers',!manager);
-  show('nav-import',admin);
-  show('nav-export',true);
-  show('nav-masters',admin);
-  show('nav-overview',manager);
-  show('nav-remaining',manager);
-  if(manager){
-    nav('overview',document.getElementById('nav-overview'));
-  }
-}
-
-// -- OVERVIEW PANEL ------------------------------------------------
+// ── OVERVIEW ──────────────────────────────────────────────────────
 function renderOverview(){
   const el=document.getElementById('manager-overview-content');
   if(!el)return;
@@ -3124,23 +3219,23 @@ function renderOverview(){
   });
   el.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-      <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--acc)">${active.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">AKTÍVNE ÚLOHY</div></div>
+      <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--acc)">${active.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">AKTÍVNE</div></div>
       <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--green)">${done.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">SPLNENÉ</div></div>
       <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--red)">${overdue.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">PO TERMÍNE</div></div>
-      <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--blue)">${onLeave.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">NA DOVOLENKE/PN</div></div>
+      <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--blue)">${onLeave.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">NEPRÍTOMNÍ</div></div>
     </div>
     <div class="card" style="margin-bottom:16px">
-      <div class="card-title">Postup podla vyrobneho prikazu</div>
+      <div class="card-title">Postup VP</div>
       ${Object.entries(vpStats).sort().map(([vp,st])=>{
         const pct=st.total?Math.round(st.done/st.total*100):0;
-        return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-weight:600;color:var(--text)">'+vp+'</span><span style="font-size:11px;color:var(--text3)">'+st.done+'/'+st.total+' uloh · '+st.doneNh.toFixed(0)+'/'+st.nh.toFixed(0)+' Nh</span></div><div style="background:var(--bg3);border-radius:4px;height:8px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:var(--green);border-radius:4px"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px">'+pct+'% hotove</div></div>';
+        return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><b style="color:var(--text)">'+vp+'</b><span style="font-size:11px;color:var(--text3)">'+st.done+'/'+st.total+' úloh · '+pct+'%</span></div><div style="background:var(--bg3);border-radius:4px;height:8px"><div style="width:'+pct+'%;height:100%;background:var(--green);border-radius:4px"></div></div></div>';
       }).join('')}
     </div>
-    ${overdue.length?'<div class="card"><div class="card-title" style="color:var(--red)">⏰ Ulohy po termine ('+overdue.length+')</div>'+overdue.map(j=>'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px"><div><span style="font-weight:600;color:var(--text)">'+j.cinName+'</span><span style="color:var(--text3);margin-left:8px">'+(j.vp||'')+' · '+j.prof+'</span></div><div style="color:var(--red)">do '+fmtDate(j.endDate)+' · '+(j.workerNames.join(', ')||'bez pracovnika')+'</div></div>').join('')+'</div>':''}
-    ${onLeave.length?'<div class="card" style="margin-top:16px"><div class="card-title">🏖 Nepritomni pracovnici</div>'+onLeave.map(w=>{const abs=(w.absencie||[]).find(a=>a.od<=today&&a.do>=today);return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600;color:var(--text)">'+w.name+'</span><span style="color:var(--text3)">'+(abs?abs.typ+' do '+fmtDate(abs.do):'')+'</span></div>';}).join('')+'</div>':''}`;
+    ${overdue.length?'<div class="card"><div class="card-title" style="color:var(--red)">⏰ Po termíne ('+overdue.length+')</div>'+overdue.map(j=>'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><div><b style="color:var(--text)">'+j.cinName+'</b> <span style="color:var(--text3)">'+(j.vp||'')+'</span></div><span style="color:var(--red)">do '+fmtDate(j.endDate)+'</span></div>').join('')+'</div>':''}
+    ${onLeave.length?'<div class="card" style="margin-top:16px"><div class="card-title">🏖 Neprítomní</div>'+onLeave.map(w=>{const a=(w.absencie||[]).find(x=>x.od<=today&&x.do>=today);return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><b style="color:var(--text)">'+w.name+'</b><span style="color:var(--text3)">'+(a?a.typ+' do '+fmtDate(a.do):'')+'</span></div>';}).join('')+'</div>':''}`;
 }
 
-// -- REMAINING PANEL -----------------------------------------------
+// ── REMAINING ─────────────────────────────────────────────────────
 function renderRemaining(){
   const el=document.getElementById('manager-remaining-content');
   if(!el)return;
@@ -3152,16 +3247,15 @@ function renderRemaining(){
     const z=c.zostava||'—';if(!byVp[vp][z])byVp[vp][z]=[];
     byVp[vp][z].push(c);
   });
-  if(!remaining.length){el.innerHTML='<div class="card"><div style="color:var(--green);font-size:14px;text-align:center;padding:20px">✅ Vsetky cinnosti su naplanovane!</div></div>';return;}
-  el.innerHTML='<div class="card" style="margin-bottom:12px"><div style="font-size:13px;color:var(--text2)">Celkom nenapanovanych: <strong style="color:var(--acc)">'+remaining.length+'</strong> cinnosti · <strong style="color:var(--acc)">'+remaining.reduce((s,c)=>s+(c.nh||0),0).toFixed(1)+' Nh</strong></div></div>'+
+  if(!remaining.length){el.innerHTML='<div class="card"><div style="color:var(--green);text-align:center;padding:20px;font-size:14px">✅ Všetky činnosti sú naplánované!</div></div>';return;}
+  el.innerHTML='<div class="card" style="margin-bottom:12px"><span style="font-size:13px;color:var(--text2)">Nenaplánovaných: <b style="color:var(--acc)">'+remaining.length+'</b> činností · <b style="color:var(--acc)">'+remaining.reduce((s,c)=>s+(c.nh||0),0).toFixed(1)+' Nh</b></span></div>'+
     Object.entries(byVp).sort().map(([vp,zostavy])=>
       '<div class="card" style="margin-bottom:12px"><div class="card-title">'+vp+'</div>'+
       Object.entries(zostavy).sort().map(([z,cins])=>
-        '<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px">'+z+'</div>'+
-        cins.map(c=>'<div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--bg3);border-radius:5px;margin-bottom:3px;font-size:12px"><div><span style="font-family:var(--font-mono);color:var(--text3);font-size:10px;margin-right:6px">'+(c.cid||c.id)+'</span><span style="color:var(--text)">'+c.name+'</span></div><div style="display:flex;gap:12px;color:var(--text3);font-size:11px"><span>'+c.prof+'</span><span style="color:var(--acc);font-weight:600">'+c.nh+' Nh</span></div></div>').join('')+
+        '<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:5px">'+z+'</div>'+
+        cins.map(c=>'<div style="display:flex;justify-content:space-between;padding:5px 8px;background:var(--bg3);border-radius:5px;margin-bottom:2px;font-size:12px"><div><span style="font-family:var(--font-mono);color:var(--text3);font-size:10px;margin-right:6px">'+(c.cid||c.id)+'</span><span style="color:var(--text)">'+c.name+'</span></div><div style="display:flex;gap:10px;color:var(--text3);font-size:11px"><span>'+c.prof+'</span><b style="color:var(--acc)">'+c.nh+' Nh</b></div></div>').join('')+
         '</div>').join('')+'</div>').join('');
 }
-
 
 document.addEventListener('DOMContentLoaded',()=>{
   // Init Firebase
@@ -3579,46 +3673,7 @@ document.getElementById('modal-add').addEventListener('click',function(e){if(e.t
     </div>
   </div>
 
-
-<div id="modal-add" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
-  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:490px;max-width:95vw">
-    <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px" id="modal-add-title">Pridať pracovníka k úlohe</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:14px" id="modal-add-sub"></div>
-    <div style="margin-bottom:12px">
-      <label style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Vyber pracovníka</label>
-      <select id="modal-add-worker" onchange="updateAddInfo()" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:var(--font-body)">
-        <option value="">— vyber pracovníka —</option>
-      </select>
-      <div style="font-size:11px;color:var(--text3);margin-top:5px;min-height:16px" id="modal-add-info"></div>
     </div>
-    <div style="margin-bottom:12px" id="modal-add-start-section">
-      <label style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:8px">Odkedy začína nový pracovník?</label>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
-          <input type="radio" name="add-start" value="after" style="margin-top:3px;accent-color:var(--acc)" checked>
-          <div>
-            <div style="font-size:12px;font-weight:600;color:var(--text)">Nadviazať kde prvý skončil</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="modal-add-after-label">Nový začne od dátumu odobrania predchádzajúceho</div>
-          </div>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
-          <input type="radio" name="add-start" value="from" style="margin-top:3px;accent-color:var(--acc)">
-          <div style="flex:1">
-            <div style="font-size:12px;font-weight:600;color:var(--text)">Zadať iný dátum</div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-              <input type="date" id="modal-add-start-date" style="padding:5px 8px;background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:var(--font-body)" oninput="updateAddInfo()">
-            </div>
-          </div>
-        </label>
-      </div>
-    </div>
-    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text2)" id="modal-add-summary"></div>
-    <div id="modal-add-msg" style="margin-bottom:8px"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn btn-outline btn-sm" onclick="closeModals()">Zrušiť</button>
-      <button class="btn btn-accent btn-sm" onclick="confirmAddWorker()">Pridať</button>
-    </div>
-  </div>
 </div>
 
 <!-- MODAL: Absencia -->

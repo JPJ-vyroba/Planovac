@@ -584,6 +584,7 @@ async function fbSave(){
   if(!db||!currentUser)return;
   _saving=true;
   clearTimeout(_saveTimer);
+  console.log('fbSave START: cin=',S.cinnosti.length,'workers=',S.workers.length,'jobs=',S.jobs.length);
   try{
     // 1. Workers
     await db.collection('workplan').doc('workers').set({
@@ -748,8 +749,11 @@ async function doLogin(){
 }
 
 async function startApp(){
+  // Vymaž localStorage pred načítaním - nechaj len Firestore
+  localStorage.removeItem('wplan4');
   const ok=await fbLoad();
-  if(!ok)lsLoad();
+  if(!ok){console.warn('FB load failed, using empty state');} 
+  console.log('After load: cin=',S.cinnosti.length,'jobs=',S.jobs.length);
   document.getElementById('startDate').value=todayStr();
   document.getElementById('gantt-from').value=todayStr();
   document.getElementById('gantt-to').value=addDays(todayStr(),30);

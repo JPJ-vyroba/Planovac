@@ -516,7 +516,6 @@ input[type=date],input[type=time]{color-scheme:dark}
 
   </div>
 </div>
-</div>
 
 <!-- EXT PANELS -->
 <div class="ext-panel" id="panel-masters" style="padding:1.5rem">
@@ -538,6 +537,8 @@ input[type=date],input[type=time]{color-scheme:dark}
 </div>
 <div class="ext-panel" id="panel-overview" style="padding:1.5rem"><div id="mgr-overview"></div></div>
 <div class="ext-panel" id="panel-remaining" style="padding:1.5rem"><div id="mgr-remaining"></div></div>
+
+  
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
@@ -1790,7 +1791,7 @@ function changeWorkerProf(wid, newProf){
   newProf=newProf.trim();
   if(!newProf)return;
   w.prof=newProf;
-  save();renderAll();
+  saveNow();renderAll();
 }
 
 function changeWorkerHours(wid, newHours){
@@ -1815,7 +1816,7 @@ function clearAllWorkers(){
   if(!confirm(`Vymazať všetkých ${S.workers.length} pracovníkov?`))return;
   S.workers=[];
   S.nextWorkerId=1;
-  save();renderAll();
+  saveNow();renderAll();
 }
 
 function clearCinZostava(){
@@ -1825,7 +1826,7 @@ function clearCinZostava(){
   S.cinnosti=S.cinnosti.filter(c=>c.zostava!==cinTabZostava);
   // Remove from vpList if no more cinnosti for that vp+zostava
   cinTabZostava='';
-  save();renderAll();
+  saveNow();renderAll();
 }
 
 function clearAllCin(){
@@ -1834,7 +1835,7 @@ function clearAllCin(){
   S.vpList=[];
   S.nextCinId=1;
   cinTabZostava='';
-  save();renderAll();
+  saveNow();renderAll();
 }
 
 
@@ -2036,7 +2037,7 @@ function removeVp(vp){
   S.jobs=S.jobs.filter(j=>j.vp!==vp);
   S.vpList=S.vpList.filter(v=>v!==vp);
   if(activeVpFilter===vp)activeVpFilter=null;
-  save();renderAll();
+  saveNow();renderAll();
 }
 
 function addMoreVp(){
@@ -2056,7 +2057,7 @@ function addMoreVp(){
       S.cinnosti.push({...c,id:'VP'+S.nextCinId++,vp:newVp});
     });
   }
-  save();renderAll();
+  saveNow();renderAll();
 }
 
 // ─── ASSIGN MODE & BASKET ────────────────────────────────────────
@@ -2179,9 +2180,9 @@ function addWorker(){
   if(!name||!prof)return;
   S.workers.push({id:S.nextWorkerId++,name,prof,hours});
   document.getElementById('nw-name').value='';
-  save();renderAll();
+  saveNow();renderAll();
 }
-function removeWorker(id){S.workers=S.workers.filter(w=>w.id!=id);save();renderAll();}
+function removeWorker(id){S.workers=S.workers.filter(w=>w.id!=id);saveNow();renderAll();}
 function addCinnost(){
   const zostava=document.getElementById('nc-zostava').value.trim();
   const etapa=document.getElementById('nc-etapa').value.trim();
@@ -2193,7 +2194,7 @@ function addCinnost(){
   if(!name||!nh)return;
   S.cinnosti.push({id:'M'+S.nextCinId++,zostava,etapa,cid,name,desc,prof,nh});
   ['nc-zostava','nc-etapa','nc-cid','nc-name','nc-desc'].forEach(i=>document.getElementById(i).value='');
-  save();renderAll();
+  saveNow();renderAll();
 }
 function removeCin(id){S.cinnosti=S.cinnosti.filter(c=>c.id!=id);S.jobs=S.jobs.filter(j=>String(j.cinId)!==String(id));saveNow();renderAll();}
 
@@ -2292,7 +2293,7 @@ function confirmImpCin(){
   if(!window._impCin)return;
   window._impCin.forEach(c=>S.cinnosti.push(c));
   if(window._impVpList)S.vpList=window._impVpList;
-  save();renderAll();
+  saveNow();renderAll();
   document.getElementById('import-cin-preview').innerHTML='';
   document.getElementById('import-cin-msg').innerHTML=`<div class="alert alert-ok">✓ Importovaných ${window._impCin.length} činností.</div>`;
   window._impCin=null;window._impVpList=null;
@@ -2334,7 +2335,7 @@ function handleFileWkr(file){
   };
   reader.readAsArrayBuffer(file);
 }
-function confirmImpWkr(){if(!window._impWkr)return;window._impWkr.forEach(w=>S.workers.push(w));save();renderAll();document.getElementById('import-wkr-preview').innerHTML='';document.getElementById('import-wkr-msg').innerHTML=`<div class="alert alert-ok">✓ Importovaných ${window._impWkr.length} pracovníkov.</div>`;window._impWkr=null;}
+function confirmImpWkr(){if(!window._impWkr)return;window._impWkr.forEach(w=>S.workers.push(w));saveNow();renderAll();document.getElementById('import-wkr-preview').innerHTML='';document.getElementById('import-wkr-msg').innerHTML=`<div class="alert alert-ok">✓ Importovaných ${window._impWkr.length} pracovníkov.</div>`;window._impWkr=null;}
 
 // ═══════════════════════════════════════════════════════════════════
 // EXPORT

@@ -584,7 +584,6 @@ async function fbSave(){
   if(!db||!currentUser)return;
   _saving=true;
   clearTimeout(_saveTimer);
-  console.log('fbSave START: cin=',S.cinnosti.length,'workers=',S.workers.length,'jobs=',S.jobs.length);
   try{
     // 1. Workers
     await db.collection('workplan').doc('workers').set({
@@ -749,11 +748,8 @@ async function doLogin(){
 }
 
 async function startApp(){
-  // Vymaž localStorage pred načítaním - nechaj len Firestore
-  localStorage.removeItem('wplan4');
   const ok=await fbLoad();
-  if(!ok){console.warn('FB load failed, using empty state');} 
-  console.log('After load: cin=',S.cinnosti.length,'jobs=',S.jobs.length);
+  if(!ok)lsLoad();
   document.getElementById('startDate').value=todayStr();
   document.getElementById('gantt-from').value=todayStr();
   document.getElementById('gantt-to').value=addDays(todayStr(),30);
@@ -1120,7 +1116,7 @@ function assignJob(){
     allowSat,allowSun,
     done:false,
   });
-  save();renderAll();
+  saveNow();renderAll();
 
   const workerDetail=chosen.map((w,i)=>
     `${w.name}: od ${fmtDate(finalSlots[i].wStart)}, ${nhForWorker[i].toFixed(1)} Nh`
@@ -1212,7 +1208,7 @@ function assignBasket(){
   }
 
   basket=[];
-  save();renderAll();
+  saveNow();renderAll();
 
   const names=createdJobs.map(j=>`<span class="chip">${j.cinName}</span>`).join(' ');
   msgEl.innerHTML=`<div class="alert alert-ok">
@@ -1224,8 +1220,8 @@ function assignBasket(){
   renderBasket();
 }
 
-function markDone(id){const j=S.jobs.find(j=>j.id==id);if(j)j.done=!j.done;save();renderAll();}
-function removeJob(id){if(!confirm('Odstrániť úlohu?'))return;S.jobs=S.jobs.filter(j=>j.id!=id);save();renderAll();}
+function markDone(id){const j=S.jobs.find(j=>j.id==id);if(j)j.done=!j.done;saveNow();renderAll();}
+function removeJob(id){if(!confirm('Odstrániť úlohu?'))return;S.jobs=S.jobs.filter(j=>j.id!=id);saveNow();renderAll();}
 function filterJobs(f,el){jobFilter=f;document.querySelectorAll('.fpill').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');renderJobs();}
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2812,13 +2808,13 @@ function confirmRemoveWorker(){
       });
       j.endDate=latestEnd.date;j.endH=latestEnd.h;
       j.workdays=new Set(j.schedule.map(s=>s.date)).size;
-      save();renderAll();closeModals();
+      saveNow();renderAll();closeModals();
       document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ ${wname} odobraný. ${totalRemainingBeforeRemoval.toFixed(1)} Nh rozdelených medzi ${remWorkers.length} pracovníkov. Nový koniec: ${fmtDate(j.endDate)} ${fmtH(j.endH)}</div>`;
     } else {
       // Pracoval sám — zostatok uloží sa na úlohu
       j.endDate=fromDate;j.endH=j.startH||6;
       j.nhRemaining=totalRemainingBeforeRemoval;
-      save();renderAll();closeModals();
+      saveNow();renderAll();closeModals();
       document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ ${wname} odobraný od ${fmtDate(fromDate)}. Zostatok <strong>${totalRemainingBeforeRemoval.toFixed(1)} Nh</strong> nepridelený — priradenie cez + Pracovník.</div>`;
     }
     nav('plan',document.querySelector('.nav-item'));
@@ -2863,7 +2859,7 @@ function confirmRemoveWorker(){
     // Koniec = max(existujúci koniec kolegov, koniec nového)
     if(endDate>j.endDate||(endDate===j.endDate&&endH>j.endH)){j.endDate=endDate;j.endH=endH;}
     j.workdays=new Set(j.schedule.map(s=>s.date)).size;
-    save();renderAll();closeModals();
+    saveNow();renderAll();closeModals();
     document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ ${wname} odobraný, nahradený: <b>${newW.name}</b> od ${fmtDate(fromDate)}. Nový koniec: ${fmtDate(j.endDate)} ${fmtH(j.endH)}</div>`;
     nav('plan',document.querySelector('.nav-item'));
   }
@@ -3018,7 +3014,7 @@ function confirmAddWorker(){
     j.endDate=latestEnd.date;j.endH=latestEnd.h;
     j.workdays=new Set(j.schedule.map(s=>s.date)).size;
 
-    save();renderAll();closeModals();
+    saveNow();renderAll();closeModals();
     document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ ${w.name} pridaný od ${fmtDate(startDate)}. ${totalRemaining.toFixed(1)} Nh rozdelených na ${allWorkers.length} pracovníkov. Nový koniec: ${fmtDate(j.endDate)} ${fmtH(j.endH)}</div>`;
     nav('plan',document.querySelector('.nav-item'));
     return;
@@ -3052,7 +3048,7 @@ function confirmAddWorker(){
   j.workdays=new Set(j.schedule.map(s=>s.date)).size;
   j.nhRemaining=0;
 
-  save();renderAll();closeModals();
+  saveNow();renderAll();closeModals();
   document.getElementById('assign-msg').innerHTML=`<div class="alert alert-ok">✓ ${w.name} pridaný od ${fmtDate(startDate)}. Zostatok ${totalRemaining.toFixed(1)} Nh. Nový koniec: ${fmtDate(j.endDate)} ${fmtH(j.endH)}</div>`;
   nav('plan',document.querySelector('.nav-item'));
 }
@@ -3262,7 +3258,7 @@ function resolveCollision(action){
     j.workdays=new Set(j.schedule.map(s=>s.date)).size;
   }
 
-  save();renderAll();
+  saveNow();renderAll();
   document.getElementById('collision-msg').innerHTML='';
 
   // Ďalšia kolízia alebo koniec
@@ -3720,7 +3716,7 @@ function _doAssign(chosen){
     nhPerWorkerActual:nhForWorker,
   };
   S.jobs.unshift(job);
-  save();renderAll();
+  saveNow();renderAll();
 
   msgEl.innerHTML=`<div class="alert alert-ok">
     ✓ Naplánované: <b>${job.cinName}</b><br>

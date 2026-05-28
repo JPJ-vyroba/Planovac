@@ -3487,7 +3487,7 @@ function importAssignments(file){
         });
       });
       S.cinAssignments=assignments;
-      save();
+      saveNow();
       const total=Object.keys(assignments).length;
       const workers=new Set(Object.values(assignments).flat()).size;
       document.getElementById('assign-import-msg').innerHTML=
@@ -3532,7 +3532,7 @@ function openAssignModal(){
 
   // 5. Automatický návrh
   const knownWorkers=(S.cinAssignments&&S.cinAssignments[cin.cid])||[];
-  const profWorkers=S.workers.filter(w=>w.prof===cin.prof);
+  const profWorkers=S.workers.filter(w=>String(w.prof)===String(cin.prof));
   const parts=startTimeStr.split(':').map(Number);
   const startH=parts[0]+((parts[1]||0)/60);
 
@@ -3629,7 +3629,7 @@ function confirmAutoAssign(){
   if(!_assignParams)return;
   const{cin,startDateRaw,startTimeStr,nh,pocet,allowSat,allowSun}=_assignParams;
   const knownWorkers=(S.cinAssignments&&S.cinAssignments[cin.cid])||[];
-  const profWorkers=S.workers.filter(w=>w.prof===cin.prof);
+  const profWorkers=S.workers.filter(w=>String(w.prof)===String(cin.prof));
 
   const suggested=profWorkers.map(w=>{
     if(knownWorkers.length>0){

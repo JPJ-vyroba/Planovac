@@ -514,9 +514,6 @@ input[type=date],input[type=time]{color-scheme:dark}
       </div>
     </div>
 
-  </div>
-</div>
-
 <!-- EXT PANELS -->
 <div class="ext-panel" id="panel-masters" style="padding:1.5rem">
   <div class="card">
@@ -538,7 +535,10 @@ input[type=date],input[type=time]{color-scheme:dark}
 <div class="ext-panel" id="panel-overview" style="padding:1.5rem"><div id="mgr-overview"></div></div>
 <div class="ext-panel" id="panel-remaining" style="padding:1.5rem"><div id="mgr-remaining"></div></div>
 
-  
+  </div>
+</div>
+
+
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
@@ -3301,10 +3301,10 @@ function addMaster(){
   if(!S.masters)S.masters=[];
   if(S.masters.find(m=>m.pin===pin)){alert('PIN už existuje.');return;}
   S.masters.push({name,pin,role,profesie});
-  save();renderMasters();
+  saveNow();renderMasters();
   ['master-name','master-pin','master-profesie'].forEach(id=>document.getElementById(id).value='');
 }
-function deleteMaster(i){if(!confirm('Odstrániť?'))return;S.masters.splice(i,1);save();renderMasters();}
+function deleteMaster(i){if(!confirm('Odstrániť?'))return;S.masters.splice(i,1);saveNow();renderMasters();}
 function editMaster(i){
   const m=S.masters[i];
   const name=prompt('Meno:',m.name);if(name===null)return;
@@ -3312,7 +3312,7 @@ function editMaster(i){
   const role=prompt('Rola (master/manager):',m.role||'master');
   const prof=prompt('Profesie (čiarkou):',m.profesie.join(', '));
   S.masters[i]={name:name.trim(),pin:pin.trim().toUpperCase(),role:(role||'master').trim(),profesie:(prof||'').split(',').map(p=>p.trim()).filter(Boolean)};
-  save();renderMasters();
+  saveNow();renderMasters();
 }
 
 // ── OVERVIEW (Manažér) ────────────────────────────────────────────

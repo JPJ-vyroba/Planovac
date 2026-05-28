@@ -3892,5 +3892,28 @@ function _doAssign(chosen){
   </div>
 </div>
 
+<!-- MODAL: Výber spôsobu priradenia -->
+<div id="modal-assign" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px" id="assign-modal-title">Priradiť pracovníkov</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px" id="assign-modal-sub"></div>
+    <div id="assign-auto-section" style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">🤖 Automatický návrh</div>
+      <div id="assign-auto-content" style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2)"></div>
+      <button id="btn-auto-confirm" class="btn btn-accent btn-sm" onclick="confirmAutoAssign()" style="margin-top:8px;width:100%">Priradiť navrhnutých</button>
+    </div>
+    <div style="text-align:center;color:var(--text3);font-size:11px;margin:10px 0">— alebo —</div>
+    <div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">👤 Manuálny výber</div>
+      <div id="assign-manual-list" style="display:flex;flex-direction:column;gap:4px;max-height:250px;overflow-y:auto;padding:4px"></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px" id="assign-manual-info"></div>
+      <button class="btn btn-outline btn-sm" onclick="confirmManualAssign()" style="margin-top:8px;width:100%">Priradiť vybraných</button>
+    </div>
+    <div id="assign-modal-msg" style="margin-top:10px"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-assign').style.display='none'">Zrušiť</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

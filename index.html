@@ -692,6 +692,11 @@ async function fbLoad(){
       });
       // Fallback: staré cinnosti priamo v meta
       if(!S.cinnosti.length&&m.cinnosti&&m.cinnosti.length) S.cinnosti=m.cinnosti;
+      // Odvoď vpList z cinností ak je prázdny
+      if(!S.vpList.length&&S.cinnosti.length){
+        const vpSet=new Set(S.cinnosti.map(c=>c.vp).filter(Boolean));
+        S.vpList=[...vpSet].sort();
+      }
     }
 
     console.log('FB loaded: cin=',S.cinnosti.length,'workers=',S.workers.length,'jobs=',S.jobs.length,'masters=',S.masters.length);

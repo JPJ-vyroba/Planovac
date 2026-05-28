@@ -654,36 +654,45 @@ function saveNow(){
 async function fbLoad(){
   if(!db)return false;
   try{
-    const get=id=>db.collection('workplan').doc(id).get({source:'server'})
-      .catch(()=>db.collection('workplan').doc(id).get());
+    const src={source:'server'};
+    const get=id=>db.collection('workplan').doc(id).get(src).catch(()=>db.collection('workplan').doc(id).get());
 
-    const[meta,workers,masters]=await Promise.all([get('meta'),get('workers'),get('masters')]);
+    // Načítaj meta, workers, masters a všetky dokumenty naraz
+    const[meta,workers,masters,allDocs]=await Promise.all([
+      get('meta'),
+      get('workers'),
+      get('masters'),
+      db.collection('workplan').get(src).catch(()=>db.collection('workplan').get())
+    ]);
 
     if(masters.exists) S.masters=masters.data().masters||[];
     if(workers.exists){const w=workers.data();S.workers=w.workers||[];S.nextWorkerId=w.nextWorkerId||1;}
 
+    // Jobs z vp_ dokumentov (už načítané v allDocs)
+    S.jobs=[];S.nextJobId=1;
+    const cinVpKeys=[];
+    allDocs.forEach(doc=>{
+      if(doc.id.startsWith('vp_')){
+        const d=doc.data();
+        if(d.jobs){S.jobs=S.jobs.concat(d.jobs);d.jobs.forEach(j=>{if(j.id>=S.nextJobId)S.nextJobId=j.id+1;});}
+      }
+      if(doc.id.startsWith('cin_')) cinVpKeys.push(doc.id);
+    });
+
     if(meta.exists){
       const m=meta.data();
       S.vpList=m.vpList||[];S.cinAssignments=m.cinAssignments||{};S.nextCinId=m.nextCinId||1;
-      // Cinnosti z cin_ dokumentov
+      // Cinnosti - už načítané v allDocs (cin_ dokumenty)
       S.cinnosti=[];
-      for(const k of(m.vpCins||[])){
-        const snap=await get('cin_'+k);
-        if(snap.exists)S.cinnosti=S.cinnosti.concat(snap.data().cins||[]);
-      }
+      allDocs.forEach(doc=>{
+        if(doc.id.startsWith('cin_')){
+          const d=doc.data();
+          if(d.cins) S.cinnosti=S.cinnosti.concat(d.cins);
+        }
+      });
       // Fallback: staré cinnosti priamo v meta
-      if(!S.cinnosti.length&&m.cinnosti&&m.cinnosti.length)S.cinnosti=m.cinnosti;
+      if(!S.cinnosti.length&&m.cinnosti&&m.cinnosti.length) S.cinnosti=m.cinnosti;
     }
-
-    // Jobs z vp_ dokumentov
-    const all=await db.collection('workplan').get({source:'server'})
-      .catch(()=>db.collection('workplan').get());
-    S.jobs=[];S.nextJobId=1;
-    all.forEach(doc=>{
-      if(!doc.id.startsWith('vp_'))return;
-      const d=doc.data();
-      if(d.jobs){S.jobs=S.jobs.concat(d.jobs);d.jobs.forEach(j=>{if(j.id>=S.nextJobId)S.nextJobId=j.id+1;});}
-    });
 
     console.log('FB loaded: cin=',S.cinnosti.length,'workers=',S.workers.length,'jobs=',S.jobs.length,'masters=',S.masters.length);
     return true;

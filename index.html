@@ -3143,7 +3143,7 @@ function confirmAbsence(){
     return (j.schedule||[]).some(s=>parseInt(s.wid)===widInt&&s.date>=od&&s.date<=doo);
   });
 
-  save();
+  saveNow();
   document.getElementById('modal-absence').style.display='none';
 
   if(affectedJobs.length){
@@ -3166,7 +3166,7 @@ function removeAbsence(wid,idx){
   const w=S.workers.find(x=>parseInt(x.id)===parseInt(wid));
   if(!w||!w.absencie)return;
   w.absencie.splice(idx,1);
-  save();renderWorkers();
+  saveNow();renderWorkers();
 }
 
 // ── ABSENCIA KOLÍZIA ─────────────────────────────────────────────

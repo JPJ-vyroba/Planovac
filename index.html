@@ -3457,8 +3457,8 @@ function renderThemeGrid(){
 
 // Načítaj tému pri štarte
 (function initTheme(){
-  const saved=localStorage.getItem('wplan_theme');
-  if(saved&&saved!=='dark-amber') document.documentElement.setAttribute('data-theme', saved);
+  const saved=localStorage.getItem('wplan_theme')||'light';
+  if(saved!=='dark-amber') document.documentElement.setAttribute('data-theme', saved);
 })();
 
 
@@ -3892,73 +3892,5 @@ function _doAssign(chosen){
   </div>
 </div>
 
-</body>
-</html>
-<div id="modal-collision" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:210;align-items:center;justify-content:center">
-  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:500px;max-width:95vw">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--red)">⚠ Kolízia s absenciou</div>
-      <span style="font-size:11px;color:var(--text3)" id="collision-progress"></span>
-    </div>
-    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px" id="collision-job-name"></div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px" id="collision-job-meta"></div>
-    <div style="font-size:12px;color:var(--acc);margin-bottom:14px;padding:8px 10px;background:rgba(240,165,0,0.08);border-radius:6px;border:1px solid rgba(240,165,0,0.2)" id="collision-nh"></div>
-
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
-      <!-- Option 1: After -->
-      <div style="padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
-        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px">📅 Dorobiť po dovolenke</div>
-        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">Pracovník dorobí zvyšné hodiny po návrate — posunie sa koniec úlohy</div>
-        <button class="btn btn-outline btn-sm" onclick="resolveCollision('after')" style="width:100%">Použiť túto možnosť</button>
-      </div>
-
-      <!-- Option 2: Replace -->
-      <div style="padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
-        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px">👤 Nahradiť iným pracovníkom</div>
-        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">Voľný pracovník prevezme hodiny počas absencie</div>
-        <div id="collision-replace-section"></div>
-        <button class="btn btn-accent btn-sm" onclick="resolveCollision('replace')" style="width:100%;margin-top:8px">Nahradiť</button>
-      </div>
-    </div>
-
-    <div id="collision-msg" style="margin-bottom:8px"></div>
-    <div style="display:flex;justify-content:flex-end">
-      <button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-collision').style.display='none'">Zatvoriť</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- MODAL: Výber spôsobu priradenia -->
-<div id="modal-assign" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
-  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto">
-    <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px" id="assign-modal-title">Priradiť pracovníkov</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:14px" id="assign-modal-sub"></div>
-    <div id="assign-auto-section" style="margin-bottom:12px">
-      <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">🤖 Automatický návrh</div>
-      <div id="assign-auto-content" style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2)"></div>
-      <button id="btn-auto-confirm" class="btn btn-accent btn-sm" onclick="confirmAutoAssign()" style="margin-top:8px;width:100%">Priradiť navrhnutých</button>
-    </div>
-    <div style="text-align:center;color:var(--text3);font-size:11px;margin:10px 0">— alebo —</div>
-    <div>
-      <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">👤 Manuálny výber</div>
-      <div id="assign-manual-list" style="display:flex;flex-direction:column;gap:4px;max-height:250px;overflow-y:auto;padding:4px"></div>
-      <div style="font-size:11px;color:var(--text3);margin-top:6px" id="assign-manual-info"></div>
-      <button class="btn btn-outline btn-sm" onclick="confirmManualAssign()" style="margin-top:8px;width:100%">Priradiť vybraných</button>
-    </div>
-    <div id="assign-modal-msg" style="margin-top:10px"></div>
-    <div style="display:flex;justify-content:flex-end;margin-top:10px">
-      <button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-assign').style.display='none'">Zrušiť</button>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>function openRemoveWorkerModal(jobId,wid){
-  const j=S.jobs.find(x=>x.id==jobId);
-  if(j&&!canSeeProf(j.prof)){alert('Nemáte oprávnenie upravovať úlohy inej profesie.');return;}eta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>WorkPlan — Plánovač výroby</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 </body>
 </html>

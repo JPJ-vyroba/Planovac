@@ -251,6 +251,7 @@ input[type=date],input[type=time]{color-scheme:dark}
   <div class="nav-item" id="nav-import" onclick="nav('import',this)"><span class="nav-icon">⇑</span> Import XLSX</div>
   <div class="nav-item" id="nav-export" onclick="exportAll()"><span class="nav-icon">⇓</span> Export XLSX</div>
   <div class="nav-item" id="nav-masters" onclick="nav('masters',this)" style="display:none"><span class="nav-icon">👥</span> THP</div>
+  <div class="nav-item" id="nav-auditlog" onclick="nav('auditlog',this);renderAuditLog()" style="display:none"><span class="nav-icon">📋</span> Audit log</div>
   <div class="nav-item" id="nav-overview" onclick="nav('overview',this)" style="display:none"><span class="nav-icon">📊</span> Prehľad</div>
   <div class="nav-item" id="nav-remaining" onclick="nav('remaining',this)" style="display:none"><span class="nav-icon">⏳</span> Zostávajúce</div>
   <div class="sidebar-bottom">
@@ -515,6 +516,28 @@ input[type=date],input[type=time]{color-scheme:dark}
     </div>
 
 <!-- EXT PANELS -->
+<!-- AUDIT LOG PANEL -->
+<div class="ext-panel" id="panel-auditlog" style="padding:1.5rem">
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="card-title" style="margin:0">Audit log</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+        <select id="audit-filter-days" onchange="renderAuditLog()" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px">
+          <option value="1">Dnes</option>
+          <option value="7" selected>Posledných 7 dní</option>
+          <option value="30">Posledných 30 dní</option>
+          <option value="999">Všetko</option>
+        </select>
+        <select id="audit-filter-user" onchange="renderAuditLog()" style="padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px">
+          <option value="">Všetci</option>
+        </select>
+        <button onclick="renderAuditLog()" class="btn btn-outline btn-sm">↻ Obnoviť</button>
+      </div>
+    </div>
+    <div id="audit-log-content"><div style="color:var(--text3);font-size:13px">Vyber záložku pre načítanie.</div></div>
+  </div>
+</div>
+
 <div class="ext-panel" id="panel-masters" style="padding:1.5rem">
   <div class="card">
     <div class="card-title">Správa THP pracovníkov</div>
@@ -544,7 +567,7 @@ input[type=date],input[type=time]{color-scheme:dark}
 // ═══════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════
-const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'THP pracovníci',overview:'Prehľad',remaining:'Zostávajúce'};
+const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'THP pracovníci',overview:'Prehľad',remaining:'Zostávajúce',auditlog:'Audit log'};
 let jobFilter='all';
 let _assignParams=null;
 let S={
@@ -773,6 +796,8 @@ async function startApp(){
   renderUserBadge();
   applyRoleUI();
   renderAll();
+  logAction('Prihlásil sa');
+  setTimeout(checkOverdueOnLogin, 500);
 }
 
 function logout(){
@@ -804,7 +829,7 @@ function applyRoleUI(){
   const show=(id,v)=>{const e=document.getElementById(id);if(e)e.style.display=v?'flex':'none';};
   show('nav-plan',!mgr);show('nav-cinnosti',!mgr);show('nav-workers',!mgr);
   show('nav-import',adm);show('nav-export',!mgr);
-  show('nav-masters',adm);show('nav-overview',mgr);show('nav-remaining',mgr);
+  show('nav-masters',adm);show('nav-auditlog',adm);show('nav-overview',mgr);show('nav-remaining',mgr);
   if(mgr)nav('overview',document.getElementById('nav-overview'));
 }
 
@@ -1223,7 +1248,9 @@ function assignBasket(){
   }
 
   basket=[];
-  saveNow();renderAll();
+  saveNow();
+  createdJobs.forEach(j=>logAction('Naplánoval úlohu',j.cinName+' · '+j.vp+' · '+j.nh+' Nh'));
+  renderAll();
 
   const names=createdJobs.map(j=>`<span class="chip">${j.cinName}</span>`).join(' ');
   msgEl.innerHTML=`<div class="alert alert-ok">
@@ -1239,13 +1266,16 @@ function markDone(id){
   const j=S.jobs.find(x=>x.id==id);
   if(!j)return;
   if(!canSeeProf(j.prof)){alert('Nemáte oprávnenie upravovať úlohy inej profesie.');return;}
-  j.done=!j.done;saveNow();renderAll();
+  j.done=!j.done;
+  logAction(j.done?'Označil splnenú':'Zrušil splnenú',j.cinName+' · '+(j.vp||''));
+  saveNow();renderAll();
 }
 function removeJob(id){
   const j=S.jobs.find(x=>x.id==id);
   if(!j)return;
   if(!canSeeProf(j.prof)){alert('Nemáte oprávnenie mazať úlohy inej profesie.');return;}
   if(!confirm('Odstrániť úlohu?'))return;
+  logAction('Zmazal úlohu',j.cinName+' · '+(j.vp||''));
   S.jobs=S.jobs.filter(x=>x.id!=id);saveNow();renderAll();
 }
 function filterJobs(f,el){jobFilter=f;document.querySelectorAll('.fpill').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');renderJobs();}
@@ -3165,7 +3195,9 @@ function confirmAbsence(){
 function removeAbsence(wid,idx){
   const w=S.workers.find(x=>parseInt(x.id)===parseInt(wid));
   if(!w||!w.absencie)return;
+  const ab=w.absencie[idx];
   w.absencie.splice(idx,1);
+  logAction('Zrušil absenciu',w.name+' · '+(ab?ab.typ+' '+ab.od+'-'+ab.do:''));
   saveNow();renderWorkers();
 }
 
@@ -3392,6 +3424,179 @@ function renderRemaining(){
 }
 
 // ── renderAll + nav visibility ────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════════
+// AUDIT LOG
+// ═══════════════════════════════════════════════════════════════════
+async function logAction(akcia, detail=''){
+  if(!db||!currentUser)return;
+  try{
+    await db.collection('log').add({
+      ts: Date.now(),
+      datum: new Date().toISOString(),
+      user: currentUser.name,
+      rola: currentUser.role,
+      profesie: currentUser.profesie||[],
+      akcia,
+      detail
+    });
+  }catch(e){console.warn('Log error:',e.message);}
+}
+
+async function renderAuditLog(){
+  const el=document.getElementById('audit-log-content');
+  if(!el)return;
+  el.innerHTML='<div style="color:var(--text3);padding:10px">Načítavam...</div>';
+  try{
+    const filterUser=document.getElementById('audit-filter-user')?.value||'';
+    const filterDays=parseInt(document.getElementById('audit-filter-days')?.value||'7');
+    const since=Date.now()-(filterDays*24*60*60*1000);
+    let q=db.collection('log').orderBy('ts','desc').limit(200);
+    const snap=await q.get();
+    let rows=[];
+    snap.forEach(doc=>{
+      const d=doc.data();
+      if(d.ts<since)return;
+      if(filterUser&&d.user!==filterUser)return;
+      rows.push(d);
+    });
+    if(!rows.length){el.innerHTML='<div style="color:var(--text3);padding:10px">Žiadne záznamy.</div>';return;}
+    el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:var(--bg3)">
+        <th style="padding:8px;text-align:left;color:var(--text3);font-weight:600;white-space:nowrap">Čas</th>
+        <th style="padding:8px;text-align:left;color:var(--text3);font-weight:600">Používateľ</th>
+        <th style="padding:8px;text-align:left;color:var(--text3);font-weight:600">Akcia</th>
+        <th style="padding:8px;text-align:left;color:var(--text3);font-weight:600">Detail</th>
+      </tr></thead>
+      <tbody>${rows.map(d=>`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:7px 8px;color:var(--text3);white-space:nowrap">${new Date(d.ts).toLocaleString('sk-SK')}</td>
+        <td style="padding:7px 8px;font-weight:600;color:var(--text)">${d.user}</td>
+        <td style="padding:7px 8px;color:var(--acc)">${d.akcia}</td>
+        <td style="padding:7px 8px;color:var(--text2)">${d.detail||''}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+    // Populate user filter
+    const users=[...new Set(rows.map(d=>d.user))].sort();
+    const sel=document.getElementById('audit-filter-user');
+    if(sel){
+      const cur=sel.value;
+      sel.innerHTML='<option value="">Všetci</option>'+users.map(u=>`<option value="${u}">${u}</option>`).join('');
+      sel.value=cur;
+    }
+  }catch(e){el.innerHTML='<div style="color:var(--red);padding:10px">Chyba: '+e.message+'</div>';}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UPOZORNENIE PO TERMÍNE
+// ═══════════════════════════════════════════════════════════════════
+function checkOverdueOnLogin(){
+  const today=todayStr();
+  const now=new Date();
+  const nowH=now.getHours()+(now.getMinutes()/60);
+  
+  // Nájdi aktívne úlohy po termíne (len vlastná profesia)
+  const overdue=S.jobs.filter(j=>{
+    if(j.done)return false;
+    if(!canSeeProf(j.prof))return false;
+    if(!j.endDate)return false;
+    // Po termíne ak: dátum < dnes, alebo dátum = dnes a čas < teraz
+    if(j.endDate<today)return true;
+    if(j.endDate===today&&j.endH&&j.endH<nowH)return true;
+    return false;
+  });
+  
+  if(!overdue.length)return;
+  
+  // Zobraziť modal
+  const modal=document.getElementById('modal-overdue');
+  if(!modal)return;
+  
+  const list=overdue.map(j=>{
+    // Nájdi kolidujúce úlohy toho istého pracovníka
+    const conflicts=[];
+    (j.workerIds||[]).forEach(wid=>{
+      const next=S.jobs.find(x=>
+        !x.done&&x.id!==j.id&&
+        (x.workerIds||[]).includes(wid)&&
+        x.startDate>=j.endDate
+      );
+      if(next){
+        const w=S.workers.find(x=>x.id===wid);
+        conflicts.push({worker:w?w.name:'?',job:next});
+      }
+    });
+    
+    return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:18px">⏰</span>
+        <div>
+          <div style="font-weight:700;color:var(--text)">${j.cinName}</div>
+          <div style="font-size:11px;color:var(--text3)">${j.vp||''} · ${j.prof} · ${j.nh} Nh</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--red);margin-bottom:8px">
+        Mala skončiť: <b>${fmtDate(j.endDate)}${j.endH?' o '+fmtH(j.endH):''}</b>
+        · Pracovníci: <b>${(j.workerNames||[]).join(', ')||'—'}</b>
+      </div>
+      ${conflicts.length?`<div style="font-size:11px;color:var(--acc);margin-bottom:10px">⚠ Kolízia: ${conflicts.map(c=>`<b>${c.worker}</b> má ďalšiu úlohu <b>${c.job.cinName}</b> od ${fmtDate(c.job.startDate)}`).join(', ')}</div>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="overdueMarkDone(${j.id})" class="btn btn-accent btn-sm">✓ Označiť splnenú</button>
+        ${conflicts.length?`<button onclick="overdueShiftNext(${j.id})" class="btn btn-outline btn-sm">→ Posunúť ďalšiu</button>`:''}
+        <button onclick="overdueIgnore(${j.id})" class="btn btn-outline btn-sm" style="color:var(--text3)">Nechať tak</button>
+      </div>
+    </div>`;
+  }).join('');
+  
+  document.getElementById('overdue-list').innerHTML=list;
+  modal.style.display='flex';
+}
+
+function overdueMarkDone(jobId){
+  const j=S.jobs.find(x=>x.id==jobId);
+  if(j){j.done=true;logAction('Označil splnenú (po termíne)',j.cinName);saveNow();}
+  closeOverdueItem(jobId);
+}
+
+function overdueShiftNext(jobId){
+  const j=S.jobs.find(x=>x.id==jobId);
+  if(!j)return;
+  // Pre každého pracovníka nájdi ďalšiu úlohu a posuň ju
+  let shifted=0;
+  (j.workerIds||[]).forEach(wid=>{
+    const next=S.jobs.find(x=>!x.done&&x.id!==j.id&&(x.workerIds||[]).includes(wid)&&x.startDate>=j.endDate);
+    if(next){
+      // Vypočítaj posun
+      const diff=daysBetween(next.startDate,j.endDate);
+      if(diff>=0){
+        next.startDate=j.endDate;
+        // Posuň endDate o rovnaký počet dní
+        const duration=daysBetween(next.startDate,next.endDate);
+        next.endDate=addDays(j.endDate,duration);
+        shifted++;
+      }
+    }
+  });
+  if(shifted>0){saveNow();logAction('Posunul nadväzujúcu úlohu','Po prekročení termínu: '+j.cinName);}
+  else alert('Nenašla sa žiadna nadväzujúca úloha na posunutie.');
+  closeOverdueItem(jobId);
+}
+
+function overdueIgnore(jobId){closeOverdueItem(jobId);}
+
+function closeOverdueItem(jobId){
+  const el=document.querySelector(`[onclick*="overdueMarkDone(${jobId})"]`)?.closest('div[style*="background:var(--bg3)"]');
+  if(el)el.remove();
+  const list=document.getElementById('overdue-list');
+  if(list&&!list.children.length){
+    const modal=document.getElementById('modal-overdue');
+    if(modal)modal.style.display='none';
+  }
+  renderAll();
+}
+
+function daysBetween(a,b){
+  return Math.round((new Date(b)-new Date(a))/(1000*60*60*24));
+}
 document.addEventListener('DOMContentLoaded',()=>{
   fbInit();
   document.getElementById('pin-input')?.focus();
@@ -3913,6 +4118,21 @@ function _doAssign(chosen){
     <div style="display:flex;justify-content:flex-end;margin-top:10px">
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-assign').style.display='none'">Zrušiť</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Upozornenie po termíne -->
+<div id="modal-overdue" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;align-items:flex-start;justify-content:center;padding-top:60px;overflow-y:auto">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:1.5rem;width:560px;max-width:95vw;margin-bottom:40px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span style="font-size:24px">⏰</span>
+      <div>
+        <div style="font-size:16px;font-weight:700;color:var(--text)">Úlohy po termíne</div>
+        <div style="font-size:12px;color:var(--text3)">Nasledujúce úlohy mali byť dokončené</div>
+      </div>
+      <button onclick="document.getElementById('modal-overdue').style.display='none'" style="margin-left:auto;background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div id="overdue-list"></div>
   </div>
 </div>
 </body>

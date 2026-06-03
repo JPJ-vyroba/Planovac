@@ -1171,7 +1171,7 @@ function assignJob(){
     allowSat,allowSun,
     done:false,
   });
-  logAction('Naplánoval úlohu', cin.name+' · '+(job.vp||'')+' · '+nh+' Nh');
+  logAction('Naplánoval úlohu', cin.name+' · '+(cin.vp||'')+' · '+nh+' Nh');
   saveNow();renderAll();
 
   const workerDetail=chosen.map((w,i)=>
@@ -3995,6 +3995,7 @@ function _doAssign(chosen){
     nhPerWorkerActual:nhForWorker,
   };
   S.jobs.unshift(job);
+  logAction('Naplánoval úlohu', job.cinName+' · '+(job.vp||'')+' · '+job.nh+' Nh');
   saveNow();renderAll();
 
   msgEl.innerHTML=`<div class="alert alert-ok">

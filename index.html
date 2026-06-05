@@ -3555,11 +3555,17 @@ function checkOverdueOnLogin(){
         · Pracovníci: <b>${(j.workerNames||[]).join(', ')||'—'}</b>
       </div>
       ${conflicts.length?`<div style="font-size:11px;color:var(--acc);margin-bottom:10px">⚠ Kolízia: ${conflicts.map(c=>`<b>${c.worker}</b> má ďalšiu úlohu <b>${c.job.cinName}</b> od ${fmtDate(c.job.startDate)}`).join(', ')}</div>`:''}
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="overdueMarkDone(${j.id})" class="btn btn-accent btn-sm">✓ Označiť splnenú</button>
-        ${conflicts.length?`<button onclick="overdueShiftNext(${j.id})" class="btn btn-outline btn-sm">→ Posunúť ďalšiu</button>`:''}
-        <button onclick="overdueIgnore(${j.id})" class="btn btn-outline btn-sm" style="color:var(--text3)">Nechať tak</button>
-      </div>
+      ${isManager()?
+        `<div style="font-size:11px;color:var(--text3);font-style:italic">Kontaktujte zodpovedného majstra.</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button onclick="overdueIgnore(${j.id})" class="btn btn-outline btn-sm" style="color:var(--text3)">Zatvoriť</button>
+        </div>`:
+        `<div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="overdueMarkDone(${j.id})" class="btn btn-accent btn-sm">✓ Označiť splnenú</button>
+          ${conflicts.length?`<button onclick="overdueShiftNext(${j.id})" class="btn btn-outline btn-sm">→ Posunúť začiatok ďalšej úlohy</button>`:''}
+          <button onclick="overdueIgnore(${j.id})" class="btn btn-outline btn-sm" style="color:var(--text3)">Nechať tak</button>
+        </div>`
+      }
     </div>`;
   }).join('');
   
@@ -3576,24 +3582,64 @@ function overdueMarkDone(jobId){
 function overdueShiftNext(jobId){
   const j=S.jobs.find(x=>x.id==jobId);
   if(!j)return;
-  // Pre každého pracovníka nájdi ďalšiu úlohu a posuň ju
-  let shifted=0;
+
+  // Nájdi všetky nadväzujúce úlohy pracovníkov tejto úlohy
+  const nextJobs=new Map();
   (j.workerIds||[]).forEach(wid=>{
-    const next=S.jobs.find(x=>!x.done&&x.id!==j.id&&(x.workerIds||[]).includes(wid)&&x.startDate>=j.endDate);
-    if(next){
-      // Vypočítaj posun
-      const diff=daysBetween(next.startDate,j.endDate);
-      if(diff>=0){
-        next.startDate=j.endDate;
-        // Posuň endDate o rovnaký počet dní
-        const duration=daysBetween(next.startDate,next.endDate);
-        next.endDate=addDays(j.endDate,duration);
-        shifted++;
-      }
-    }
+    const next=S.jobs.find(x=>
+      !x.done&&x.id!==j.id&&
+      (x.workerIds||[]).includes(wid)&&
+      x.startDate>=j.endDate
+    );
+    if(next&&!nextJobs.has(next.id)) nextJobs.set(next.id,next);
   });
-  if(shifted>0){saveNow();logAction('Posunul nadväzujúcu úlohu','Po prekročení termínu: '+j.cinName);}
-  else alert('Nenašla sa žiadna nadväzujúca úloha na posunutie.');
+
+  if(!nextJobs.size){alert('Nenašla sa žiadna nadväzujúca úloha na posunutie.');closeOverdueItem(jobId);return;}
+
+  let shifted=0;
+  nextJobs.forEach(next=>{
+    // Nový začiatok = endDate aktuálnej úlohy
+    const newStart=j.endDate;
+    const newStartH=j.endH||6;
+
+    // Získaj pracovníkov ďalšej úlohy
+    const workers=S.workers.filter(w=>(next.workerIds||[]).includes(w.id));
+    if(!workers.length)return;
+
+    const allowSat=next.allowSat||false;
+    const allowSun=next.allowSun||false;
+    const nhPerWorker=next.nh/Math.max(1,workers.length);
+
+    // Prepočítaj schedule pre každého pracovníka
+    const allSlots=[];
+    let latestEnd={date:newStart,h:newStartH};
+
+    workers.forEach(w=>{
+      const slots=scheduleWorker(w.id,nhPerWorker,newStart,newStartH,6,w.hours||8,allowSat,allowSun);
+      allSlots.push(...slots);
+      if(slots.length){
+        const last=slots[slots.length-1];
+        if(last.date>latestEnd.date||(last.date===latestEnd.date&&last.to>latestEnd.h)){
+          latestEnd={date:last.date,h:last.to};
+        }
+      }
+    });
+
+    // Aktualizuj úlohu
+    next.startDate=newStart;
+    next.startH=newStartH;
+    next.endDate=latestEnd.date;
+    next.endH=latestEnd.h;
+    next.schedule=allSlots;
+    next.workdays=new Set(allSlots.map(s=>s.date)).size;
+    shifted++;
+  });
+
+  if(shifted>0){
+    saveNow();
+    logAction('Posunul začiatok ďalšej úlohy','Po prekročení termínu: '+j.cinName+' → '+[...nextJobs.values()].map(x=>x.cinName).join(', '));
+    renderAll();
+  }
   closeOverdueItem(jobId);
 }
 

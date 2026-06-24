@@ -4318,7 +4318,10 @@ function renderMaterial(){
     const kzm=j.cid||'';
     const cinNazov=j.cinName||'';
     const vp=j.vp||'';
-    const zostava=j.zostava||'';
+    const zostavRaw=j.zostava||'';
+    // Normalizuj zostavu — extrakt HV5/HV6/VV5/VV6 z názvu (napr. "HV5_orig" → "HV5")
+    const zostavMatch=zostavRaw.match(/\b(HV5|HV6|VV5|VV6)\b/i);
+    const zostava=zostavMatch?zostavMatch[1].toUpperCase():zostavRaw;
     const datumStart=j.startDate?new Date(j.startDate).toLocaleDateString('sk-SK'):'';
 
     const nsmItems=(S.nsm||[]).filter(n=>n.kzm===kzm&&n.zostava===zostava);

@@ -694,7 +694,14 @@ async function fbSave(){
     // 4. Meta (bez cinnosti)
     await db.collection('workplan').doc('meta').set({
       vpList:S.vpList||[],cinAssignments:S.cinAssignments||{},
-      nextCinId:S.nextCinId||1,vpCins:Object.keys(cinByVp),nsm:S.nsm||[],ts:Date.now()});
+      nextCinId:S.nextCinId||1,vpCins:Object.keys(cinByVp),ts:Date.now()});
+
+    // 4b. NSM → per zostava dokumenty (nsm_HV5, nsm_HV6, nsm_VV5, nsm_VV6)
+    const zostavy=['HV5','HV6','VV5','VV6'];
+    for(const z of zostavy){
+      const items=(S.nsm||[]).filter(n=>n.zostava===z);
+      await db.collection('workplan').doc('nsm_'+z).set({items,ts:Date.now()});
+    }
 
     // 5. Jobs → per VP dokumenty
     const jobsByVp={};
@@ -706,11 +713,12 @@ async function fbSave(){
     for(const[k,jobs]of Object.entries(jobsByVp)){
       await db.collection('workplan').doc('vp_'+k).set({jobs,ts:Date.now()});
     }
-    // Vynuluj VP-y ktoré nemajú žiadne jobs
-    const allDocs=await db.collection('workplan').get();
-    for(const doc of allDocs.docs){
-      if(doc.id.startsWith('vp_')&&!jobsByVp[doc.id.slice(3)]){
-        await db.collection('workplan').doc(doc.id).set({jobs:[],ts:Date.now()});
+    // Vynuluj VP-y ktoré nemajú žiadne jobs — bez extra allDocs volania
+    const knownVpDocs=(S.vpList||[]).map(vp=>'vp_'+vp);
+    const activeVpDocs=Object.keys(jobsByVp).map(k=>'vp_'+k);
+    for(const docId of knownVpDocs){
+      if(!activeVpDocs.includes(docId)){
+        await db.collection('workplan').doc(docId).set({jobs:[],ts:Date.now()});
       }
     }
 
@@ -768,7 +776,16 @@ async function fbLoad(){
     if(meta.exists){
       const m=meta.data();
       S.vpList=m.vpList||[];S.cinAssignments=m.cinAssignments||{};S.nextCinId=m.nextCinId||1;
-      S.nsm=m.nsm||[];
+      // NSM z nsm_ dokumentov
+      S.nsm=[];
+      allDocs.forEach(doc=>{
+        if(doc.id.startsWith('nsm_')){
+          const d=doc.data();
+          if(d.items)S.nsm=S.nsm.concat(d.items);
+        }
+      });
+      // Fallback: staré NSM priamo v meta
+      if(!S.nsm.length&&m.nsm&&m.nsm.length)S.nsm=m.nsm;
       // Cinnosti - už načítané v allDocs (cin_ dokumenty)
       S.cinnosti=[];
       allDocs.forEach(doc=>{

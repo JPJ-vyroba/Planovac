@@ -268,6 +268,7 @@ input[type=date],input[type=time]{color-scheme:dark}
   <div class="nav-item" id="nav-auditlog" onclick="nav('auditlog',this);renderAuditLog()" style="display:none"><span class="nav-icon">📋</span> Audit log</div>
   <div class="nav-item" id="nav-overview" onclick="nav('overview',this)" style="display:none"><span class="nav-icon">📊</span> Prehľad</div>
   <div class="nav-item" id="nav-remaining" onclick="nav('remaining',this)" style="display:none"><span class="nav-icon">⏳</span> Zostávajúce</div>
+  <div class="nav-item" id="nav-material" onclick="nav('material',this);initMaterialPanel()" style="display:none"><span class="nav-icon">📦</span> Materiál</div>
   <div class="sidebar-bottom">
     <div class="sidebar-stat">Pracovníci: <strong id="sb-w">0</strong></div>
     <div class="sidebar-stat">Činnosti: <strong id="sb-c">0</strong></div>
@@ -561,7 +562,7 @@ input[type=date],input[type=time]{color-scheme:dark}
       <div class="field"><label>PIN</label><input type="text" id="master-pin" placeholder="MS001" style="width:100%;font-family:var(--font-mono)"></div>
       <div class="field"><label>Rola</label>
         <select id="master-role" style="width:100%;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
-          <option value="master">Majster</option><option value="manager">Manažér</option>
+          <option value="master">Majster</option><option value="manager">Manažér</option><option value="logista">Logista</option>
         </select>
       </div>
       <div class="field"><label>Profesie (čiarkou)</label><input type="text" id="master-profesie" placeholder="2320, 2324" style="width:100%"></div>
@@ -572,6 +573,52 @@ input[type=date],input[type=time]{color-scheme:dark}
 </div>
 <div class="ext-panel" id="panel-overview" style="padding:1.5rem"><div id="mgr-overview"></div></div>
 <div class="ext-panel" id="panel-remaining" style="padding:1.5rem"><div id="mgr-remaining"></div></div>
+
+<!-- MATERIAL PANEL -->
+<div class="ext-panel" id="panel-material" style="padding:1.5rem">
+  <div class="card">
+    <div class="card-title">Import NSM (Norma spotreby materiálu)</div>
+    <div class="col-note">Názov súboru musí obsahovať zostavu: <span>14Ev4_520_<b>HV5</b>_05-09-2025_NSM.xlsx</span> — každá zostava sa importuje samostatne, nová verzia prepíše len tú zostavu</div>
+    <div id="nsm-zostava-status" style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap"></div>
+    <div class="drop-zone" id="drop-nsm" onclick="document.getElementById('file-nsm').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDropNsm(event)">
+      <div class="drop-icon">📦</div>
+      <div class="drop-title">Pretiahni NSM súbor sem alebo klikni</div>
+      <div class="drop-sub">14Ev4_520_HV5_... · 14Ev4_521_HV6_... · 14Ev4_523_VV5_... · 14Ev4_524_VV6_...</div>
+    </div>
+    <input type="file" id="file-nsm" accept=".xlsx,.xls" style="display:none" onchange="handleFileNsm(this.files[0])">
+    <div id="nsm-import-msg" style="margin-top:8px"></div>
+    <div id="nsm-import-stats" style="margin-top:6px;font-size:12px;color:var(--text3)"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">
+      <h3>Zoznam materiálu pre plánované činnosti</h3>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div class="field" style="max-width:140px">
+          <label style="font-size:9px">VP</label>
+          <select id="mat-vp-filter" onchange="renderMaterial()" style="padding:5px 8px;font-size:12px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
+            <option value="">Všetky VP</option>
+          </select>
+        </div>
+        <div class="field" style="max-width:130px">
+          <label style="font-size:9px">Týždeň od</label>
+          <input type="date" id="mat-week-from" onchange="renderMaterial()">
+        </div>
+        <div class="field" style="max-width:130px">
+          <label style="font-size:9px">Týždeň do</label>
+          <input type="date" id="mat-week-to" onchange="renderMaterial()">
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="setNextWeek()">Budúci týždeň</button>
+        <button class="btn btn-accent btn-sm" onclick="exportMaterial()">⇓ Export XLSX</button>
+      </div>
+    </div>
+    <div id="mat-summary" style="margin-bottom:10px;font-size:12px;color:var(--text3)"></div>
+    <div class="tbl-wrap"><div id="mat-table"></div></div>
+  </div>
+</div>
 
   </div>
 </div>
@@ -591,6 +638,7 @@ let S={
   jobs:[],
   vpList:[],
   cinAssignments:{},  // ['VP-001','VP-002',...]
+  nsm:[],             // [{kzm, nazovMaterialu, cisloMaterialu, mnozstvo, jednotka, stanoviste, etaz}]
   nextJobId:1,nextWorkerId:1,nextCinId:1,
 };
 
@@ -646,7 +694,7 @@ async function fbSave(){
     // 4. Meta (bez cinnosti)
     await db.collection('workplan').doc('meta').set({
       vpList:S.vpList||[],cinAssignments:S.cinAssignments||{},
-      nextCinId:S.nextCinId||1,vpCins:Object.keys(cinByVp),ts:Date.now()});
+      nextCinId:S.nextCinId||1,vpCins:Object.keys(cinByVp),nsm:S.nsm||[],ts:Date.now()});
 
     // 5. Jobs → per VP dokumenty
     const jobsByVp={};
@@ -720,6 +768,7 @@ async function fbLoad(){
     if(meta.exists){
       const m=meta.data();
       S.vpList=m.vpList||[];S.cinAssignments=m.cinAssignments||{};S.nextCinId=m.nextCinId||1;
+      S.nsm=m.nsm||[];
       // Cinnosti - už načítané v allDocs (cin_ dokumenty)
       S.cinnosti=[];
       allDocs.forEach(doc=>{
@@ -832,6 +881,7 @@ function logout(){
 // ── ROLY ─────────────────────────────────────────────────────────
 function isAdmin(){return currentUser&&currentUser.role==='admin';}
 function isManager(){return currentUser&&currentUser.role==='manager';}
+function isLogista(){return currentUser&&currentUser.role==='logista';}
 
 function canSeeProf(prof){
   if(!currentUser||isAdmin()||isManager())return true;
@@ -840,17 +890,22 @@ function canSeeProf(prof){
 }
 
 function applyRoleUI(){
-  const mgr=isManager(),adm=isAdmin();
+  const mgr=isManager(),adm=isAdmin(),log=isLogista();
   const show=(id,v)=>{const e=document.getElementById(id);if(e)e.style.display=v?'flex':'none';};
-  show('nav-plan',!mgr);show('nav-cinnosti',!mgr);show('nav-workers',!mgr);
-  show('nav-import',adm);show('nav-export',!mgr);
+  show('nav-plan',!mgr&&!log);show('nav-cinnosti',!mgr&&!log);show('nav-workers',!mgr&&!log);
+  show('nav-import',adm);show('nav-export',!mgr&&!log);
   show('nav-masters',adm);show('nav-auditlog',adm);show('nav-overview',mgr);show('nav-remaining',mgr);
+  show('nav-material',log||adm);
+  // Gantt vidí všetci okrem manažéra (ten má vlastný prehľad)
+  const ganttEl=document.querySelector('[onclick="nav(\'gantt\',this)"]');
+  if(ganttEl)ganttEl.style.display=mgr?'none':'flex';
   if(mgr)nav('overview',document.getElementById('nav-overview'));
+  if(log)nav('material',document.getElementById('nav-material'));
 }
 
 function renderUserBadge(){
   const el=document.getElementById('sync-area');if(!el||!currentUser)return;
-  const rl=isAdmin()?'Admin':isManager()?'Manažér':'Majster';
+  const rl=isAdmin()?'Admin':isManager()?'Manažér':isLogista()?'Logista':'Majster';
   const pl=currentUser.profesie&&currentUser.profesie.length?' · '+currentUser.profesie.join(', '):'';
   el.innerHTML=`<div style="display:flex;align-items:center;gap:8px">
     <span style="font-size:11px;color:var(--text3)"><b style="color:var(--acc)">${currentUser.name}</b> · ${rl}${pl}</span>
@@ -2214,10 +2269,11 @@ function renderBasket(){
 function renderAll(){
   if(!currentUser)return;
   // Nav visibility
-  const adm=isAdmin(),mgr=isManager();
+  const adm=isAdmin(),mgr=isManager(),log=isLogista();
   const showN=(id,v)=>{const e=document.getElementById(id);if(e)e.style.display=v?'flex':'none';};
-  showN('nav-plan',!mgr);showN('nav-cinnosti',!mgr);showN('nav-workers',!mgr);
-  showN('nav-import',adm);showN('nav-export',!mgr);showN('nav-masters',adm);showN('nav-overview',mgr);showN('nav-remaining',mgr);
+  showN('nav-plan',!mgr&&!log);showN('nav-cinnosti',!mgr&&!log);showN('nav-workers',!mgr&&!log);
+  showN('nav-import',adm);showN('nav-export',!mgr&&!log);showN('nav-masters',adm);showN('nav-overview',mgr);showN('nav-remaining',mgr);
+  showN('nav-material',log||adm);
   renderMasters();
   renderStats();renderJobs();renderCinnosti();renderWorkers();renderCinSelect();renderVpManager();renderVpFilterPills();
   // Show assignment import status
@@ -3370,7 +3426,7 @@ function renderMasters(){
   el.innerHTML=ms.map((m,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
     <div style="flex:1">
       <div style="display:flex;align-items:center;gap:8px"><b style="color:var(--text)">${m.name}</b>
-        <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${m.role==='manager'?'rgba(59,130,246,0.15)':'rgba(240,165,0,0.15)'};color:${m.role==='manager'?'#60a5fa':'var(--acc)'}">${m.role==='manager'?'Manažér':'Majster'}</span>
+        <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${m.role==='manager'?'rgba(59,130,246,0.15)':m.role==='logista'?'rgba(16,185,129,0.15)':'rgba(240,165,0,0.15)'};color:${m.role==='manager'?'#60a5fa':m.role==='logista'?'#10b981':'var(--acc)'}">${m.role==='manager'?'Manažér':m.role==='logista'?'Logista':'Majster'}</span>
       </div>
       <div style="font-size:11px;color:var(--text3)">PIN: <b style="font-family:var(--font-mono);color:var(--acc)">${m.pin}</b> · ${m.profesie&&m.profesie.length?m.profesie.join(', '):'všetky profesie'}</div>
     </div>
@@ -4050,6 +4106,269 @@ function _doAssign(chosen){
     ${fmtDate(startDateRaw)} ${fmtH(startH)} → ${fmtDate(latestEnd.date)} ${fmtH(latestEnd.h)} · ${job.workdays} prac. dní
   </div>`;
   nav('plan',document.querySelector('.nav-item'));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NSM — NORMA SPOTREBY MATERIÁLU
+// ═══════════════════════════════════════════════════════════════════
+
+function handleDropNsm(e){
+  e.preventDefault();
+  document.getElementById('drop-nsm').classList.remove('drag');
+  const f=e.dataTransfer.files[0];
+  if(f)handleFileNsm(f);
+}
+
+// Rozozná zostavu z názvu súboru: 14Ev4_520_HV5_05-09-2025_NSM → "HV5"
+function zostavFromFilename(fname){
+  const parts=fname.replace(/\.xlsx?$/i,'').split('_');
+  const known=['HV5','HV6','VV5','VV6'];
+  for(const p of parts){
+    if(known.includes(p.toUpperCase()))return p.toUpperCase();
+  }
+  return null;
+}
+
+function parseNsmSheet(ws){
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  // Nájdi header riadok
+  let headerRow=-1;
+  for(let i=0;i<Math.min(rows.length,15);i++){
+    const r=rows[i].map(c=>String(c||'').toLowerCase());
+    if(r.some(c=>c.includes('číslo mat')||c.includes('cislo mat')||c.includes('kzm')||c.includes('názov mat'))){
+      headerRow=i;break;
+    }
+  }
+  const dataStart=headerRow>=0?headerRow+1:0;
+  const hdr=headerRow>=0?rows[headerRow].map(c=>String(c||'').toLowerCase()):[];
+  const ci=(name)=>hdr.findIndex(h=>h.includes(name));
+  const items=[];
+  rows.slice(dataStart).forEach(row=>{
+    if(!row||row.length<3)return;
+    let nazov,cislo,mnozstvo,jednotka,stanoviste,kzm,etaz;
+    if(headerRow>=0){
+      const iNazov=ci('názov mat')>=0?ci('názov mat'):ci('nazov mat');
+      const iCislo=ci('číslo mat')>=0?ci('číslo mat'):ci('cislo mat');
+      const iMnoz=ci('výsky')>=0?ci('výsky'):ci('vysky');
+      const iJed=ci('jednotk');
+      const iStan=ci('stanovis');
+      const iKzm=ci('kzm');
+      const iEtaz=ci('etaž')>=0?ci('etaž'):ci('etaz');
+      nazov=String(row[iNazov>=0?iNazov:1]||'').trim();
+      cislo=String(row[iCislo>=0?iCislo:2]||'').trim();
+      mnozstvo=parseFloat(String(row[iMnoz>=0?iMnoz:6]||'0').replace(',','.'))||0;
+      jednotka=String(row[iJed>=0?iJed:7]||'ks').trim()||'ks';
+      stanoviste=String(row[iStan>=0?iStan:9]||'').trim();
+      kzm=String(row[iKzm>=0?iKzm:14]||'').trim();
+      etaz=String(row[iEtaz>=0?iEtaz:16]||'').trim();
+    } else {
+      nazov=String(row[1]||'').trim();
+      cislo=String(row[2]||'').trim();
+      mnozstvo=parseFloat(String(row[6]||'0').replace(',','.'))||0;
+      jednotka=String(row[7]||'ks').trim()||'ks';
+      stanoviste=String(row[9]||'').trim();
+      kzm=String(row[14]||'').trim();
+      etaz=String(row[16]||'').trim();
+    }
+    if(!kzm||(!cislo&&!nazov))return;
+    items.push({kzm,nazovMaterialu:nazov,cisloMaterialu:cislo,mnozstvo,jednotka,stanoviste,etaz});
+  });
+  return items;
+}
+
+function handleFileNsm(file){
+  if(!file)return;
+  const msg=document.getElementById('nsm-import-msg');
+  const stats=document.getElementById('nsm-import-stats');
+
+  // Rozozni zostavu z názvu súboru
+  const zostava=zostavFromFilename(file.name);
+  if(!zostava){
+    msg.innerHTML=`<span style="color:var(--red)">✗ Nepodarilo sa rozoznať zostavu z názvu súboru.<br>
+    Očakávaný formát: <b>14Ev4_520_HV5_05-09-2025_NSM.xlsx</b><br>
+    Zostava musí byť HV5, HV6, VV5 alebo VV6.</span>`;
+    return;
+  }
+
+  msg.innerHTML=`<span style="color:var(--text3)">Načítavam NSM pre zostavu <b>${zostava}</b>...</span>`;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      // Parsuj všetky hárky a zlúč
+      const newItems=[];
+      wb.SheetNames.forEach(sn=>{
+        const items=parseNsmSheet(wb.Sheets[sn]);
+        items.forEach(it=>newItems.push({...it,zostava}));
+      });
+
+      // Vymaž staré záznamy tejto zostavy, zachovaj ostatné
+      if(!S.nsm)S.nsm=[];
+      S.nsm=S.nsm.filter(n=>n.zostava!==zostava);
+      S.nsm=S.nsm.concat(newItems);
+      saveNow();
+
+      const kzmSet=new Set(newItems.map(r=>r.kzm)).size;
+      // Prehľad všetkých načítaných zostáv
+      const zostavyStat=['HV5','HV6','VV5','VV6'].map(z=>{
+        const cnt=S.nsm.filter(n=>n.zostava===z).length;
+        return cnt?`<span style="color:var(--teal)">${z}: ${cnt}</span>`:`<span style="color:var(--text3)">${z}: —</span>`;
+      }).join(' · ');
+
+      msg.innerHTML=`<span style="color:var(--teal)">✓ Zostava <b>${zostava}</b>: importovaných ${newItems.length} položiek pre ${kzmSet} KZM kódov</span>`;
+      stats.innerHTML=`Stav NSM databázy: ${zostavyStat}`;
+      renderNsmStatus();
+    }catch(err){
+      msg.innerHTML=`<span style="color:var(--red)">Chyba: ${err.message}</span>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderNsmStatus(){
+  const el=document.getElementById('nsm-zostava-status');
+  if(!el)return;
+  const zostavy=['HV5','HV6','VV5','VV6'];
+  el.innerHTML=zostavy.map(z=>{
+    const cnt=(S.nsm||[]).filter(n=>n.zostava===z).length;
+    const ok=cnt>0;
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:${ok?'rgba(16,185,129,0.1)':'var(--bg3)'};border:1px solid ${ok?'rgba(16,185,129,0.3)':'var(--border)'}">
+      <span style="font-size:14px">${ok?'✅':'⬜'}</span>
+      <span style="font-size:12px;font-weight:600;color:${ok?'#10b981':'var(--text3)'}">${z}</span>
+      ${ok?`<span style="font-size:10px;color:var(--text3)">${cnt} pol.</span>`:'<span style="font-size:10px;color:var(--text3)">nenačítané</span>'}
+    </div>`;
+  }).join('');
+}
+
+function initMaterialPanel(){
+  setNextWeek();
+  renderNsmStatus();
+  const sel=document.getElementById('mat-vp-filter');
+  if(sel){
+    const vpList=S.vpList||[];
+    sel.innerHTML='<option value="">Všetky VP</option>'+vpList.map(vp=>`<option value="${vp}">${vp}</option>`).join('');
+  }
+  renderMaterial();
+}
+
+function setNextWeek(){
+  const today=new Date();
+  const day=today.getDay();
+  const daysUntilMon=day===0?1:8-day;
+  const mon=new Date(today);
+  mon.setDate(today.getDate()+daysUntilMon);
+  const fri=new Date(mon);
+  fri.setDate(mon.getDate()+4);
+  const fmt=d=>d.toISOString().slice(0,10);
+  const fromEl=document.getElementById('mat-week-from');
+  const toEl=document.getElementById('mat-week-to');
+  if(fromEl)fromEl.value=fmt(mon);
+  if(toEl)toEl.value=fmt(fri);
+  renderMaterial();
+}
+
+function renderMaterial(){
+  const fromVal=document.getElementById('mat-week-from')?.value;
+  const toVal=document.getElementById('mat-week-to')?.value;
+  const vpFilter=document.getElementById('mat-vp-filter')?.value||'';
+  const tbl=document.getElementById('mat-table');
+  const summary=document.getElementById('mat-summary');
+  if(!tbl)return;
+
+  if(!fromVal||!toVal){
+    tbl.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div>Vyber časové obdobie</div>';
+    return;
+  }
+
+  const from=new Date(fromVal);
+  const to=new Date(toVal);
+  to.setHours(23,59,59);
+
+  // Nájdi jobs ktoré ŠTARTUJÚ v danom období
+  const jobs=(S.jobs||[]).filter(j=>{
+    if(j.done)return false;
+    if(vpFilter&&j.vp!==vpFilter)return false;
+    if(!j.workers||!j.workers.length)return false;
+    const starts=j.workers.flatMap(w=>(w.blocks||[]).map(b=>new Date(b.start)));
+    if(!starts.length)return false;
+    const earliest=new Date(Math.min(...starts.map(d=>d.getTime())));
+    return earliest>=from&&earliest<=to;
+  });
+
+  if(!jobs.length){
+    tbl.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div>Žiadne činnosti štartujúce v tomto období</div>';
+    if(summary)summary.textContent='';
+    return;
+  }
+
+  const rows=[];
+  jobs.forEach(j=>{
+    const kzm=j.cinId||j.cinKzm||'';
+    const cinNazov=j.cinName||'';
+    const vp=j.vp||'';
+    const zostava=j.zostava||'';
+    const starts=j.workers.flatMap(w=>(w.blocks||[]).map(b=>new Date(b.start)));
+    const earliest=starts.length?new Date(Math.min(...starts.map(d=>d.getTime()))):null;
+    const datumStart=earliest?earliest.toLocaleDateString('sk-SK'):'';
+    const datumStartIso=earliest?earliest.toISOString().slice(0,10):'';
+
+    const nsmItems=(S.nsm||[]).filter(n=>n.kzm===kzm&&n.zostava===zostava);
+    if(nsmItems.length){
+      nsmItems.forEach(item=>{
+        rows.push({cisloMaterialu:item.cisloMaterialu,nazovMaterialu:item.nazovMaterialu,
+          mnozstvo:item.mnozstvo,jednotka:item.jednotka,kzm,cinNazov,
+          stanoviste:item.stanoviste,etaz:item.etaz,datumStart,datumStartIso,
+          zostavVp:`${zostava}-${vp}`,vp,zostava});
+      });
+    } else {
+      rows.push({cisloMaterialu:'—',nazovMaterialu:'(NSM nenájdené)',mnozstvo:0,jednotka:'',
+        kzm,cinNazov,stanoviste:'',etaz:'',datumStart,datumStartIso,
+        zostavVp:`${zostava}-${vp}`,vp,zostava});
+    }
+  });
+
+  const nsmCount=rows.filter(r=>r.cisloMaterialu!=='—').length;
+  if(summary)summary.textContent=`${jobs.length} činností · ${nsmCount} položiek materiálu`;
+
+  tbl.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead>
+      <tr style="background:var(--bg3);border-bottom:2px solid var(--border)">
+        ${['Zostava-VP','Dátum štartu','KZM','Názov činnosti','Číslo materiálu','Názov materiálu','Množstvo','Jedn.','Stanovište','Etáž']
+          .map(h=>`<th style="padding:8px;text-align:${h==='Množstvo'?'right':'left'};font-size:10px;color:var(--text3);white-space:nowrap">${h}</th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--border);background:${i%2===0?'transparent':'var(--bg3)'}">
+        <td style="padding:6px 8px;font-weight:600;color:var(--acc);white-space:nowrap">${r.zostavVp}</td>
+        <td style="padding:6px 8px;white-space:nowrap;color:var(--teal)">${r.datumStart}</td>
+        <td style="padding:6px 8px;font-family:var(--font-mono);font-size:11px;color:var(--text2)">${r.kzm}</td>
+        <td style="padding:6px 8px;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.cinNazov}">${r.cinNazov}</td>
+        <td style="padding:6px 8px;font-family:var(--font-mono);font-size:11px">${r.cisloMaterialu}</td>
+        <td style="padding:6px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.nazovMaterialu}">${r.nazovMaterialu}</td>
+        <td style="padding:6px 8px;text-align:right;font-weight:600">${r.mnozstvo||''}</td>
+        <td style="padding:6px 8px;color:var(--text3)">${r.jednotka}</td>
+        <td style="padding:6px 8px;color:var(--text3)">${r.stanoviste}</td>
+        <td style="padding:6px 8px;color:var(--text3)">${r.etaz}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+
+  window._matRows=rows;
+}
+
+function exportMaterial(){
+  const rows=window._matRows;
+  if(!rows||!rows.length){alert('Najprv načítaj dáta — žiadne riadky na export.');return;}
+  if(typeof XLSX==='undefined'){alert('XLSX knižnica nie je dostupná.');return;}
+  const fromVal=document.getElementById('mat-week-from')?.value||'';
+  const toVal=document.getElementById('mat-week-to')?.value||'';
+  const header=['Zostava-VP','Dátum štartu','KZM','Názov činnosti','Číslo materiálu','Názov materiálu','Množstvo','Jednotka','Stanovište','Etáž'];
+  const data=[header,...rows.map(r=>[r.zostavVp,r.datumStart,r.kzm,r.cinNazov,r.cisloMaterialu,r.nazovMaterialu,r.mnozstvo,r.jednotka,r.stanoviste,r.etaz])];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:14},{wch:12},{wch:12},{wch:28},{wch:16},{wch:32},{wch:10},{wch:7},{wch:16},{wch:8}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Materiál');
+  XLSX.writeFile(wb,`material_${fromVal}_${toVal}.xlsx`);
 }
 
 

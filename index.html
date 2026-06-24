@@ -1230,7 +1230,7 @@ function assignJob(){
 
   S.jobs.unshift({
     id:S.nextJobId++,
-    cinId,cid:cin.cid,cinName:cin.name,desc:cin.desc||'',prof:cin.prof,vp:cin.vp||'',
+    cinId,cid:cin.cid,cinName:cin.name,desc:cin.desc||'',prof:cin.prof,vp:cin.vp||'',zostava:cin.zostava||'',
     nh,pocet,startDate:startDateRaw,startH,
     endDate:latestEnd.date,endH:latestEnd.h,
     nhPerWorker:nh/pocet, // nominal
@@ -4147,49 +4147,46 @@ function zostavFromFilename(fname){
 }
 
 function parseNsmSheet(ws){
-  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-  // Nájdi header riadok
-  let headerRow=-1;
-  for(let i=0;i<Math.min(rows.length,15);i++){
-    const r=rows[i].map(c=>String(c||'').toLowerCase());
-    if(r.some(c=>c.includes('číslo mat')||c.includes('cislo mat')||c.includes('kzm')||c.includes('názov mat'))){
-      headerRow=i;break;
-    }
-  }
-  const dataStart=headerRow>=0?headerRow+1:0;
-  const hdr=headerRow>=0?rows[headerRow].map(c=>String(c||'').toLowerCase()):[];
-  const ci=(name)=>hdr.findIndex(h=>h.includes(name));
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  // Štruktúra NSM súboru:
+  // R1-R7: hlavička dokumentu
+  // R8+R9: dvojriadkový header stĺpcov
+  // R10:   "Vyplňuje TPV OV" — preskočiť
+  // R11+:  dátové riadky
+  //
+  // Pevné indexy stĺpcov (0-based):
+  //  [3]  P.č.
+  //  [4]  Názov materiálu
+  //  [5]  Číslo materiálu
+  //  [8]  Výskyt (množstvo)
+  //  [16] M.J. (jednotka)
+  //  [17] Názov činnosti
+  //  [18] Činnosť KZM  ← kľúč
+  //  [19] Názov stanoviska (etáž)
+  //  [20] Etapa výroby
+
   const items=[];
-  rows.slice(dataStart).forEach(row=>{
-    if(!row||row.length<3)return;
-    let nazov,cislo,mnozstvo,jednotka,stanoviste,kzm,etaz;
-    if(headerRow>=0){
-      const iNazov=ci('názov mat')>=0?ci('názov mat'):ci('nazov mat');
-      const iCislo=ci('číslo mat')>=0?ci('číslo mat'):ci('cislo mat');
-      const iMnoz=ci('výsky')>=0?ci('výsky'):ci('vysky');
-      const iJed=ci('jednotk');
-      const iStan=ci('stanovis');
-      const iKzm=ci('kzm');
-      const iEtaz=ci('etaž')>=0?ci('etaž'):ci('etaz');
-      nazov=String(row[iNazov>=0?iNazov:1]||'').trim();
-      cislo=String(row[iCislo>=0?iCislo:2]||'').trim();
-      mnozstvo=parseFloat(String(row[iMnoz>=0?iMnoz:6]||'0').replace(',','.'))||0;
-      jednotka=String(row[iJed>=0?iJed:7]||'ks').trim()||'ks';
-      stanoviste=String(row[iStan>=0?iStan:9]||'').trim();
-      kzm=String(row[iKzm>=0?iKzm:14]||'').trim();
-      etaz=String(row[iEtaz>=0?iEtaz:16]||'').trim();
-    } else {
-      nazov=String(row[1]||'').trim();
-      cislo=String(row[2]||'').trim();
-      mnozstvo=parseFloat(String(row[6]||'0').replace(',','.'))||0;
-      jednotka=String(row[7]||'ks').trim()||'ks';
-      stanoviste=String(row[9]||'').trim();
-      kzm=String(row[14]||'').trim();
-      etaz=String(row[16]||'').trim();
-    }
-    if(!kzm||(!cislo&&!nazov))return;
-    items.push({kzm,nazovMaterialu:nazov,cisloMaterialu:cislo,mnozstvo,jednotka,stanoviste,etaz});
-  });
+  // Nájdi štart dát — riadok kde [3] je číslo (P.č. = 1)
+  let dataStart=10; // default R11 (0-indexed = 10)
+  for(let i=0;i<Math.min(rows.length,20);i++){
+    if(rows[i]&&rows[i][3]==1&&rows[i][5]){dataStart=i;break;}
+  }
+
+  for(let i=dataStart;i<rows.length;i++){
+    const row=rows[i];
+    if(!row)continue;
+    const cislo=row[5]!=null?String(row[5]).trim():'';
+    const kzm=row[18]!=null?String(row[18]).trim():'';
+    if(!cislo&&!kzm)continue;
+    const nazov=row[4]!=null?String(row[4]).trim():'';
+    const mnozstvo=parseFloat(String(row[8]||'0').replace(',','.'))||0;
+    const jednotka=row[16]!=null?String(row[16]).trim():'ks';
+    const cinNazov=row[17]!=null?String(row[17]).trim():'';
+    const stanoviste=row[19]!=null?String(row[19]).trim():'';
+    const etaza=row[20]!=null?String(row[20]).trim():'';
+    items.push({kzm,nazovMaterialu:nazov,cisloMaterialu:cislo,mnozstvo,
+      jednotka:jednotka||'ks',stanoviste,etaz:etaza,cinNazov});
+  }
   return items;
 }
 
@@ -4305,11 +4302,9 @@ function renderMaterial(){
   const jobs=(S.jobs||[]).filter(j=>{
     if(j.done)return false;
     if(vpFilter&&j.vp!==vpFilter)return false;
-    if(!j.workers||!j.workers.length)return false;
-    const starts=j.workers.flatMap(w=>(w.blocks||[]).map(b=>new Date(b.start)));
-    if(!starts.length)return false;
-    const earliest=new Date(Math.min(...starts.map(d=>d.getTime())));
-    return earliest>=from&&earliest<=to;
+    if(!j.startDate)return false;
+    const start=new Date(j.startDate+'T06:00:00');
+    return start>=from&&start<=to;
   });
 
   if(!jobs.length){
@@ -4320,26 +4315,23 @@ function renderMaterial(){
 
   const rows=[];
   jobs.forEach(j=>{
-    const kzm=j.cinId||j.cinKzm||'';
+    const kzm=j.cid||'';
     const cinNazov=j.cinName||'';
     const vp=j.vp||'';
     const zostava=j.zostava||'';
-    const starts=j.workers.flatMap(w=>(w.blocks||[]).map(b=>new Date(b.start)));
-    const earliest=starts.length?new Date(Math.min(...starts.map(d=>d.getTime()))):null;
-    const datumStart=earliest?earliest.toLocaleDateString('sk-SK'):'';
-    const datumStartIso=earliest?earliest.toISOString().slice(0,10):'';
+    const datumStart=j.startDate?new Date(j.startDate).toLocaleDateString('sk-SK'):'';
 
     const nsmItems=(S.nsm||[]).filter(n=>n.kzm===kzm&&n.zostava===zostava);
     if(nsmItems.length){
       nsmItems.forEach(item=>{
         rows.push({cisloMaterialu:item.cisloMaterialu,nazovMaterialu:item.nazovMaterialu,
           mnozstvo:item.mnozstvo,jednotka:item.jednotka,kzm,cinNazov,
-          stanoviste:item.stanoviste,etaz:item.etaz,datumStart,datumStartIso,
+          stanoviste:item.stanoviste,etaz:item.etaz,datumStart,
           zostavVp:`${zostava}-${vp}`,vp,zostava});
       });
     } else {
-      rows.push({cisloMaterialu:'—',nazovMaterialu:'(NSM nenájdené)',mnozstvo:0,jednotka:'',
-        kzm,cinNazov,stanoviste:'',etaz:'',datumStart,datumStartIso,
+      rows.push({cisloMaterialu:'—',nazovMaterialu:'(NSM nenájdené pre '+zostava+')',mnozstvo:0,jednotka:'',
+        kzm,cinNazov,stanoviste:'',etaz:'',datumStart,
         zostavVp:`${zostava}-${vp}`,vp,zostava});
     }
   });

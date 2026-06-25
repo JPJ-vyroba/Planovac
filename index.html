@@ -268,7 +268,10 @@ input[type=date],input[type=time]{color-scheme:dark}
   <div class="nav-item" id="nav-auditlog" onclick="nav('auditlog',this);renderAuditLog()" style="display:none"><span class="nav-icon">📋</span> Audit log</div>
   <div class="nav-item" id="nav-overview" onclick="nav('overview',this)" style="display:none"><span class="nav-icon">📊</span> Prehľad</div>
   <div class="nav-item" id="nav-remaining" onclick="nav('remaining',this)" style="display:none"><span class="nav-icon">⏳</span> Zostávajúce</div>
+  <div class="nav-item" id="nav-gantt-mgr" onclick="nav('gantt',this)" style="display:none"><span class="nav-icon">📅</span> Gantt</div>
+  <div class="nav-item" id="nav-kapacita" onclick="nav('kapacita',this);renderKapacita()" style="display:none"><span class="nav-icon">📈</span> Kapacita</div>
   <div class="nav-item" id="nav-material" onclick="nav('material',this);initMaterialPanel()" style="display:none"><span class="nav-icon">📦</span> Materiál</div>
+  <div class="nav-item" id="nav-plan-log" onclick="nav('plan-log',this)" style="display:none"><span class="nav-icon">📋</span> Plán úloh</div>
   <div class="sidebar-bottom">
     <div class="sidebar-stat">Pracovníci: <strong id="sb-w">0</strong></div>
     <div class="sidebar-stat">Činnosti: <strong id="sb-c">0</strong></div>
@@ -292,7 +295,7 @@ input[type=date],input[type=time]{color-scheme:dark}
     <div class="tab-panel active" id="panel-plan">
       <div class="stats-bar" id="stats-bar"></div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text3);font-weight:600">VP filter:</span>
+        <span style="font-size:11px;color:var(--text3);font-weight:600">Súprava filter:</span>
         <div id="vp-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
       </div>
       <div class="card">
@@ -306,7 +309,7 @@ input[type=date],input[type=time]{color-scheme:dark}
 
         <div class="card-row" style="margin-bottom:12px">
           <div class="field" style="min-width:120px;max-width:140px">
-            <label>Zostava</label>
+            <label>Vozeň</label>
             <select id="plan-zostava-select" onchange="onZostavaChange()"><option value="">— zostava —</option></select>
           </div>
           <div class="field" style="min-width:100px;max-width:120px">
@@ -319,7 +322,7 @@ input[type=date],input[type=time]{color-scheme:dark}
           </div>
           <!-- Multi mode: add to basket button -->
           <button id="btn-add-basket" class="btn btn-outline btn-sm" onclick="addToBasket()" style="display:none;align-self:flex-end;white-space:nowrap">+ Do balíčka</button>
-          <div class="field" style="max-width:80px" id="field-nh"><label>Nh celkom</label><input type="number" id="nh-val" min="0.5" step="0.5" placeholder="auto"></div>
+          <div class="field" style="max-width:80px" id="field-nh"><label>Nh celkom</label><input type="number" id="nh-val" min="0.5" step="0.5" placeholder="auto" readonly style="background:var(--bg3);cursor:default" title="Nh sa načítajú automaticky z normy"></div>
           <div class="field" style="max-width:65px"><label>Ľudia</label><input type="number" id="pocet" min="1" value="1"></div>
           <div class="field" style="max-width:145px"><label>Dátum začiatku</label><input type="date" id="startDate"></div>
           <div class="field" style="max-width:105px"><label>Čas začiatku</label><input type="time" id="startTime" value="06:00"></div>
@@ -414,7 +417,7 @@ input[type=date],input[type=time]{color-scheme:dark}
                   <option value="">Všetky etapy</option>
                 </select>
                 <input type="text" id="cin-search" placeholder="Hľadaj..." oninput="renderCinnosti()" style="padding:5px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);width:120px">
-                <button class="btn btn-danger btn-sm" onclick="clearCinZostava()" title="Vymazať zobrazenú zostavu">✕ Zostava</button>
+                <button class="btn btn-danger btn-sm" onclick="clearCinZostava()" title="Vymazať zobrazený vozeň">✕ Vozeň</button>
                 <button class="btn btn-danger btn-sm" onclick="clearAllCin()" title="Vymazať všetky činnosti">✕ Všetko</button>
               </div>
             </div>
@@ -430,7 +433,7 @@ input[type=date],input[type=time]{color-scheme:dark}
           <span style="color:var(--text3);font-size:12px">▼</span>
         </div>
         <div style="display:none;flex-wrap:wrap;gap:10px;margin-top:12px" class="card-row">
-          <div class="field" style="max-width:80px"><label>Zostava</label><input type="text" id="nc-zostava" placeholder="HV5"></div>
+          <div class="field" style="max-width:80px"><label>Vozeň</label><input type="text" id="nc-zostava" placeholder="HV5"></div>
           <div class="field" style="max-width:80px"><label>Etapa</label><input type="text" id="nc-etapa" placeholder="MS00"></div>
           <div class="field" style="max-width:100px"><label>ID kód</label><input type="text" id="nc-cid" placeholder="TE004611"></div>
           <div class="field" style="flex:2;min-width:150px"><label>Názov</label><input type="text" id="nc-name" placeholder="Zváranie rámu"></div>
@@ -476,14 +479,14 @@ input[type=date],input[type=time]{color-scheme:dark}
     <div class="tab-panel" id="panel-import">
       <div class="card">
         <div class="card-title">Import činností z Excelu</div>
-        <div class="col-note">Stĺpce: <span>A</span>=Etapa &nbsp;<span>C</span>=ID kód &nbsp;<span>D</span>=Názov &nbsp;<span>E</span>=Popis &nbsp;<span>F</span>=Profesia &nbsp;<span>M</span>=Nh &nbsp;— Názov hárka = Zostava &nbsp;— Nahrá všetky hárky naraz</div>
+        <div class="col-note">Stĺpce: <span>A</span>=Etapa &nbsp;<span>C</span>=ID kód &nbsp;<span>D</span>=Názov &nbsp;<span>E</span>=Popis &nbsp;<span>F</span>=Profesia &nbsp;<span>M</span>=Nh &nbsp;— Názov hárka = Vozeň &nbsp;— Nahrá všetky hárky naraz</div>
         <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:12px;flex-wrap:wrap">
           <div class="field" style="max-width:120px">
             <label>Počet kusov (VP)</label>
             <input type="number" id="import-vp-count" min="1" max="99" value="1" oninput="updateVpPreview()">
           </div>
           <div style="font-size:12px;color:var(--text3);padding-bottom:10px">
-            Vytvorí <span id="import-vp-preview" style="color:var(--acc);font-weight:600">VP-001</span> až <span id="import-vp-preview-end" style="color:var(--acc);font-weight:600">VP-001</span>
+            Vytvorí súpravu <span id="import-vp-preview" style="color:var(--acc);font-weight:600">VP-001</span> až <span id="import-vp-preview-end" style="color:var(--acc);font-weight:600">VP-001</span>
           </div>
         </div>
         <div class="drop-zone" id="drop-cin" onclick="document.getElementById('file-cin').click()"
@@ -498,7 +501,7 @@ input[type=date],input[type=time]{color-scheme:dark}
         <div id="import-cin-msg"></div><div id="import-cin-preview"></div>
       </div>
       <div class="card">
-        <div class="card-title">Správa výrobných príkazov (VP)</div>
+        <div class="card-title">Správa súprav</div>
         <div id="vp-manager"></div>
       </div>
 
@@ -598,9 +601,9 @@ input[type=date],input[type=time]{color-scheme:dark}
       <h3>Zoznam materiálu pre plánované činnosti</h3>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
         <div class="field" style="max-width:140px">
-          <label style="font-size:9px">VP</label>
+          <label style="font-size:9px">Súprava</label>
           <select id="mat-vp-filter" onchange="renderMaterial()" style="padding:5px 8px;font-size:12px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
-            <option value="">Všetky VP</option>
+            <option value="">Všetky súpravy</option>
           </select>
         </div>
         <div class="field" style="max-width:130px">
@@ -624,13 +627,54 @@ input[type=date],input[type=time]{color-scheme:dark}
   </div>
 </div>
 
+<!-- PANEL: Plán úloh (logista - read only) -->
+<div class="ext-panel" id="panel-plan-log" style="padding:1.5rem">
+  <div class="card">
+    <div class="section-head">
+      <h3>Plán úloh</h3>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div id="log-vp-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+        <select id="log-job-status" onchange="renderPlanLog()" style="padding:5px 8px;font-size:12px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
+          <option value="all">Všetky</option>
+          <option value="active">Aktívne</option>
+          <option value="done">Splnené</option>
+        </select>
+      </div>
+    </div>
+    <div id="plan-log-content"></div>
+  </div>
+</div>
+
+<!-- PANEL: Kapacita (Nh po profesiách) -->
+<div class="ext-panel" id="panel-kapacita" style="padding:1.5rem">
+  <div class="card">
+    <div class="section-head">
+      <h3>Kapacita — naplánované Nh po profesiách</h3>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div class="field" style="max-width:130px">
+          <label style="font-size:9px">Od</label>
+          <input type="date" id="kap-from" onchange="renderKapacita()">
+        </div>
+        <div class="field" style="max-width:130px">
+          <label style="font-size:9px">Do</label>
+          <input type="date" id="kap-to" onchange="renderKapacita()">
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="kapSetMonth()">Tento mesiac</button>
+        <button class="btn btn-outline btn-sm" onclick="kapSetNext()">Budúci mesiac</button>
+      </div>
+    </div>
+    <div id="kap-table" style="margin-bottom:20px"></div>
+    <div id="kap-chart" style="height:220px;position:relative"></div>
+  </div>
+</div>
+
 
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════
-const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'THP pracovníci',overview:'Prehľad',remaining:'Zostávajúce',auditlog:'Audit log'};
+const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'THP pracovníci',overview:'Prehľad',remaining:'Zostávajúce',auditlog:'Audit log','plan-log':'Plán úloh',kapacita:'Kapacita',material:'Materiál'};
 let jobFilter='all';
 let _assignParams=null;
 let S={
@@ -914,12 +958,13 @@ function applyRoleUI(){
   show('nav-plan',!mgr&&!log);show('nav-cinnosti',!mgr&&!log);show('nav-workers',!mgr&&!log);
   show('nav-import',adm);show('nav-export',!mgr&&!log);
   show('nav-masters',adm);show('nav-auditlog',adm);show('nav-overview',mgr);show('nav-remaining',mgr);
-  show('nav-material',log||adm);
-  // Gantt vidí všetci okrem manažéra (ten má vlastný prehľad)
-  const ganttEl=document.querySelector('[onclick="nav(\'gantt\',this)"]');
-  if(ganttEl)ganttEl.style.display=mgr?'none':'flex';
+  show('nav-gantt-mgr',mgr);show('nav-kapacita',mgr||log||adm);
+  show('nav-material',log||adm);show('nav-plan-log',log);
+  // Gantt vidí majster a admin (nie cez nav-gantt-mgr ale cez existujúci nav-gantt)
+  const ganttEl=document.getElementById('nav-gantt');
+  if(ganttEl)ganttEl.style.display=(mgr||log)?'none':'flex';
   if(mgr)nav('overview',document.getElementById('nav-overview'));
-  if(log)nav('material',document.getElementById('nav-material'));
+  if(log){nav('material',document.getElementById('nav-material'));initMaterialPanel();}
 }
 
 function renderUserBadge(){
@@ -1374,14 +1419,22 @@ function filterJobs(f,el){jobFilter=f;document.querySelectorAll('.fpill').forEac
 // RENDER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════
 function renderStats(){
-  const active=S.jobs.filter(j=>!j.done);
+  // Pre majstra filtruj podľa jeho profesie
+  const myProfs=currentUser&&currentUser.professions?currentUser.professions:null;
+  const filterJob=j=>!myProfs||myProfs.length===0||myProfs.includes(String(j.prof));
+  const filterWorker=w=>!myProfs||myProfs.length===0||myProfs.includes(String(w.prof));
+
+  const active=S.jobs.filter(j=>!j.done&&filterJob(j));
+  const done=S.jobs.filter(j=>j.done&&filterJob(j));
   const totalNh=active.reduce((s,j)=>s+j.nh,0);
+  const myWorkers=S.workers.filter(filterWorker);
   const busyW=new Set(active.flatMap(j=>j.workerIds)).size;
+  const profLabel=myProfs&&myProfs.length?` (${myProfs.join(', ')})`:'';
   document.getElementById('stats-bar').innerHTML=`
-    <div class="stat-card"><div class="stat-n">${active.length}</div><div class="stat-l">Aktívne úlohy</div></div>
-    <div class="stat-card blue"><div class="stat-n">${S.jobs.filter(j=>j.done).length}</div><div class="stat-l">Splnené</div></div>
-    <div class="stat-card green"><div class="stat-n">${totalNh.toFixed(0)}</div><div class="stat-l">Nh v pláne</div></div>
-    <div class="stat-card purple"><div class="stat-n">${busyW}/${S.workers.length}</div><div class="stat-l">Obsadení</div></div>`;
+    <div class="stat-card"><div class="stat-n">${active.length}</div><div class="stat-l">Aktívne úlohy${profLabel}</div></div>
+    <div class="stat-card blue"><div class="stat-n">${done.length}</div><div class="stat-l">Splnené${profLabel}</div></div>
+    <div class="stat-card green"><div class="stat-n">${totalNh.toFixed(0)}</div><div class="stat-l">Nh v pláne${profLabel}</div></div>
+    <div class="stat-card purple"><div class="stat-n">${busyW}/${myWorkers.length}</div><div class="stat-l">Obsadení${profLabel}</div></div>`;
   document.getElementById('sb-w').textContent=S.workers.length;
   document.getElementById('sb-c').textContent=S.cinnosti.length;
   document.getElementById('sb-j').textContent=active.length;
@@ -1582,7 +1635,7 @@ function renderGantt(){
   const jobs=ganttActiveTab==='summary'?allJobs:allJobs.filter(j=>j.vp===ganttActiveTab);
 
   if(!jobs.length){
-    el.innerHTML=tabsHtml+legendHtml+'<div class="empty-state"><div class="empty-icon">▤</div>Žiadne úlohy pre tento VP</div>';
+    el.innerHTML=tabsHtml+legendHtml+'<div class="empty-state"><div class="empty-icon">▤</div>Žiadne úlohy pre túto súpravu</div>';
     return;
   }
 
@@ -1591,7 +1644,7 @@ function renderGantt(){
 
   // Build header row — zvýrazni dnešný deň
   function buildHeader(){
-    let h=`<div class="gantt-header-row"><div class="g-label">${ganttActiveTab==='summary'?'VP / Úloha':'Úloha / Pracovník'}</div><div class="g-days">`;
+    let h=`<div class="gantt-header-row"><div class="g-label">${ganttActiveTab==='summary'?'Súprava / Úloha':'Úloha / Pracovník'}</div><div class="g-days">`;
     dates.forEach(dt=>{
       const s=isSat(dt),u=isSun(dt);
       const isToday=dt===todayD;
@@ -1968,7 +2021,7 @@ function clearAllWorkers(){
 }
 
 function clearCinZostava(){
-  if(!cinTabZostava){alert('Vyber zostavu vľavo.');return;}
+  if(!cinTabZostava){alert('Vyber vozeň vľavo.');return;}
   const cnt=S.cinnosti.filter(c=>c.zostava===cinTabZostava).length;
   if(!confirm(`Vymazať všetkých ${cnt} činností zostavy "${cinTabZostava}"?`))return;
   S.cinnosti=S.cinnosti.filter(c=>c.zostava!==cinTabZostava);
@@ -2125,7 +2178,7 @@ function onProfChange(){
   }
 }
 
-function vpLabel(n){return 'VP-'+String(n).padStart(3,'0');}
+function vpLabel(n){return 'S-'+String(n).padStart(3,'0');}
 
 function updateVpPreview(){
   const n=parseInt(document.getElementById('import-vp-count')?.value)||1;
@@ -2156,7 +2209,7 @@ function renderVpManager(){
         <label>Pridať ďalšie kusy</label>
         <input type="number" id="vp-add-count" min="1" max="99" value="1" placeholder="počet">
       </div>
-      <button class="btn btn-accent btn-sm" onclick="addMoreVp()">+ Pridať VP</button>
+      <button class="btn btn-accent btn-sm" onclick="addMoreVp()">+ Pridať súpravu</button>
     </div>`;
 }
 
@@ -2292,7 +2345,8 @@ function renderAll(){
   const showN=(id,v)=>{const e=document.getElementById(id);if(e)e.style.display=v?'flex':'none';};
   showN('nav-plan',!mgr&&!log);showN('nav-cinnosti',!mgr&&!log);showN('nav-workers',!mgr&&!log);
   showN('nav-import',adm);showN('nav-export',!mgr&&!log);showN('nav-masters',adm);showN('nav-overview',mgr);showN('nav-remaining',mgr);
-  showN('nav-material',log||adm);
+  showN('nav-gantt-mgr',mgr);showN('nav-kapacita',mgr||log||adm);
+  showN('nav-material',log||adm);showN('nav-plan-log',log);
   renderMasters();
   renderStats();renderJobs();renderCinnosti();renderWorkers();renderCinSelect();renderVpManager();renderVpFilterPills();
   // Show assignment import status
@@ -2321,6 +2375,9 @@ function nav(tab,el){
   if(tab==='masters')renderMasters();
   if(tab==='overview')renderOverview();
   if(tab==='remaining')renderRemaining();
+  if(tab==='plan-log')initPlanLogFilters();
+  if(tab==='kapacita')renderKapacita();
+  if(tab==='auditlog')renderAuditLog();
 }
 function addWorker(){
   const name=document.getElementById('nw-name').value.trim();
@@ -2413,7 +2470,7 @@ function handleFileCin(file){
       window._impVpList=S.vpList.slice(); // save current vpList state for confirm
 
       const statsHtml=sheetStats.map(s=>`<span class="prof-badge pf-other">${s.zostava}: ${s.count}</span>`).join(' ');
-      const vpInfo=vpCount>1?` × <b>${vpCount} VP</b> (${vpLabel(1)}–${vpLabel(vpCount)})`:'';
+      const vpInfo=vpCount>1?` × <b>${vpCount} súpravy</b> (${vpLabel(1)}–${vpLabel(vpCount)})`:'';
       msg.innerHTML=`<div class="alert alert-ok">Nájdených <b>${imported.length}</b> činností z ${wb.SheetNames.length} hárkov${vpInfo} = <b>${allImported.length}</b> záznamov celkom. Preskočených ${skipped}.<br>${statsHtml}</div>`;
 
       // Preview grouped by zostava
@@ -2510,13 +2567,13 @@ function exportAll(){
     const wb=XLSX.utils.book_new();
 
     // Sheet 1: Plán úloh
-    const planData=[['#','Kód','Názov','Popis','Profesia','Nh celkom','Ľudia','Začiatok','Koniec','Prac.dní','Sobota','Nedeľa','Pracovníci','Stav']];
+    const planData=[['#','Súprava','Vozeň','ID činnosti','Názov','Popis','Profesia','Nh celkom','Ľudia','Začiatok','Koniec','Prac.dní','Sobota','Nedeľa','Pracovníci','Stav']];
     S.jobs.forEach((j,i)=>{
       const nhOsStr = j.nhPerWorkerActual
         ? j.nhPerWorkerActual.map((v,wi)=>`${j.workerNames[wi]}: ${parseFloat(v).toFixed(1)}Nh`).join(', ')
         : parseFloat((j.nhPerWorker||0)).toFixed(1)+' Nh/os.';
       planData.push([
-        i+1, j.cid||'', j.cinName, j.desc||'', j.prof,
+        i+1, j.vp||'', j.zostava||'', j.cid||'', j.cinName, j.desc||'', j.prof,
         j.nh, j.pocet,
         fmtDate(j.startDate)+' '+fmtH(j.startH||6),
         fmtDate(j.endDate)+' '+fmtH(j.endH||0),
@@ -2528,7 +2585,7 @@ function exportAll(){
       ]);
     });
     const wsPlan=XLSX.utils.aoa_to_sheet(planData);
-    wsPlan['!cols']=[{wch:3},{wch:13},{wch:28},{wch:30},{wch:9},{wch:9},{wch:6},{wch:18},{wch:18},{wch:8},{wch:7},{wch:7},{wch:35},{wch:10},{wch:40}];
+    wsPlan['!cols']=[{wch:3},{wch:8},{wch:8},{wch:13},{wch:28},{wch:30},{wch:9},{wch:9},{wch:6},{wch:18},{wch:18},{wch:8},{wch:7},{wch:7},{wch:35},{wch:10},{wch:40}];
     XLSX.utils.book_append_sheet(wb,wsPlan,'Plán úloh');
 
     // Sheet 2: Hodinový detail
@@ -3492,7 +3549,7 @@ function renderOverview(){
       <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:var(--red)">${overdue.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">PO TERMÍNE</div></div>
       <div class="card" style="text-align:center"><div style="font-size:32px;font-weight:800;color:#60a5fa">${onLeave.length}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">NEPRÍTOMNÍ</div></div>
     </div>
-    <div class="card" style="margin-bottom:16px"><div class="card-title">Postup VP</div>
+    <div class="card" style="margin-bottom:16px"><div class="card-title">Postup súprav</div>
       ${Object.entries(vpS).sort().map(([vp,s])=>{const p=s.t?Math.round(s.d/s.t*100):0;
         return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><b style="color:var(--text)">'+vp+'</b><span style="font-size:11px;color:var(--text3)">'+s.d+'/'+s.t+' · '+p+'%</span></div><div style="background:var(--bg3);border-radius:3px;height:7px"><div style="width:'+p+'%;height:100%;background:var(--green);border-radius:3px"></div></div></div>';
       }).join('')}
@@ -4164,7 +4221,7 @@ function parseNsmSheet(ws){
   //  [8]  Výskyt (množstvo)
   //  [16] M.J. (jednotka)
   //  [17] Názov činnosti
-  //  [18] Činnosť KZM  ← kľúč
+  //  [18] ID činnosti (KZM)  ← kľúč
   //  [19] Názov stanoviska (etáž)
   //  [20] Etapa výroby
 
@@ -4203,7 +4260,7 @@ function handleFileNsm(file){
   if(!zostava){
     msg.innerHTML=`<span style="color:var(--red)">✗ Nepodarilo sa rozoznať zostavu z názvu súboru.<br>
     Očakávaný formát: <b>14Ev4_520_HV5_05-09-2025_NSM.xlsx</b><br>
-    Zostava musí byť HV5, HV6, VV5 alebo VV6.</span>`;
+    Vozeň musí byť HV5, HV6, VV5 alebo VV6.</span>`;
     return;
   }
 
@@ -4232,7 +4289,7 @@ function handleFileNsm(file){
         return cnt?`<span style="color:var(--teal)">${z}: ${cnt}</span>`:`<span style="color:var(--text3)">${z}: —</span>`;
       }).join(' · ');
 
-      msg.innerHTML=`<span style="color:var(--teal)">✓ Zostava <b>${zostava}</b>: importovaných ${newItems.length} položiek pre ${kzmSet} KZM kódov</span>`;
+      msg.innerHTML=`<span style="color:var(--teal)">✓ Vozeň <b>${zostava}</b>: importovaných ${newItems.length} položiek pre ${kzmSet} ID činností</span>`;
       stats.innerHTML=`Stav NSM databázy: ${zostavyStat}`;
       renderNsmStatus();
     }catch(err){
@@ -4275,7 +4332,7 @@ function initMaterialPanel(){
   const sel=document.getElementById('mat-vp-filter');
   if(sel){
     const vpList=S.vpList||[];
-    sel.innerHTML='<option value="">Všetky VP</option>'+vpList.map(vp=>`<option value="${vp}">${vp}</option>`).join('');
+    sel.innerHTML='<option value="">Všetky súpravy</option>'+vpList.map(vp=>`<option value="${vp}">${vp}</option>`).join('');
   }
   renderMaterial();
 }
@@ -4360,7 +4417,7 @@ function renderMaterial(){
   tbl.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead>
       <tr style="background:var(--bg3);border-bottom:2px solid var(--border)">
-        ${['Zostava-VP','Dátum štartu','KZM','Názov činnosti','Číslo materiálu','Názov materiálu','Množstvo','Jedn.','Stanovište','Etáž']
+        ${['Vozeň-Súprava','Dátum štartu','ID činnosti','Názov činnosti','Číslo materiálu','Názov materiálu','Množstvo','Jedn.','Stanovište','Etáž']
           .map(h=>`<th style="padding:8px;text-align:${h==='Množstvo'?'right':'left'};font-size:10px;color:var(--text3);white-space:nowrap">${h}</th>`).join('')}
       </tr>
     </thead>
@@ -4387,15 +4444,209 @@ function exportMaterial(){
   const rows=window._matRows;
   if(!rows||!rows.length){alert('Najprv načítaj dáta — žiadne riadky na export.');return;}
   if(typeof XLSX==='undefined'){alert('XLSX knižnica nie je dostupná.');return;}
-  const fromVal=document.getElementById('mat-week-from')?.value||'';
-  const toVal=document.getElementById('mat-week-to')?.value||'';
-  const header=['Zostava-VP','Dátum štartu','KZM','Názov činnosti','Číslo materiálu','Názov materiálu','Množstvo','Jednotka','Stanovište','Etáž'];
-  const data=[header,...rows.map(r=>[r.zostavVp,r.datumStart,r.kzm,r.cinNazov,r.cisloMaterialu,r.nazovMaterialu,r.mnozstvo,r.jednotka,r.stanoviste,r.etaz])];
-  const ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:14},{wch:12},{wch:12},{wch:28},{wch:16},{wch:32},{wch:10},{wch:7},{wch:16},{wch:8}];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Materiál');
-  XLSX.writeFile(wb,`material_${fromVal}_${toVal}.xlsx`);
+
+  // Načítaj konštanty z localStorage
+  const savedF=localStorage.getItem('mat_konst_F')||'';
+  const savedG=localStorage.getItem('mat_konst_G')||'';
+  const savedJ=localStorage.getItem('mat_konst_J')||'';
+
+  // Zobraz formulár konštánt
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:380px;max-width:95vw">
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px">⚙️ Konštanty pre export</div>
+    <div style="display:grid;gap:10px;margin-bottom:16px">
+      <div class="field"><label>F — Stanovisko</label><input id="exp-konst-f" value="${savedF}" placeholder="napr. 444" style="width:100%"></div>
+      <div class="field"><label>G — Výrobný sklad</label><input id="exp-konst-g" value="${savedG}" placeholder="napr. ZP23" style="width:100%"></div>
+      <div class="field"><label>J — Zákazka</label><input id="exp-konst-j" value="${savedJ}" placeholder="napr. 920219815" style="width:100%"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="this.closest('[style*=fixed]').remove()" class="btn btn-outline btn-sm">Zrušiť</button>
+      <button id="btn-exp-confirm" class="btn btn-accent btn-sm">⇓ Exportovať</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+
+  document.getElementById('btn-exp-confirm').onclick=()=>{
+    const konstF=document.getElementById('exp-konst-f').value.trim();
+    const konstG=document.getElementById('exp-konst-g').value.trim();
+    const konstJ=document.getElementById('exp-konst-j').value.trim();
+    localStorage.setItem('mat_konst_F',konstF);
+    localStorage.setItem('mat_konst_G',konstG);
+    localStorage.setItem('mat_konst_J',konstJ);
+    modal.remove();
+
+    const fromVal=document.getElementById('mat-week-from')?.value||'';
+    const toVal=document.getElementById('mat-week-to')?.value||'';
+
+    // Nová štruktúra exportu: A-N
+    // A=ID materiálu, B=Text materiálu, C=voľné, D=Množstvo, E=M.J.,
+    // F=Stanovisko(konst), G=Výrobný sklad(konst), H=Číslo vozňa(Súprava+Vozeň),
+    // I=Dátum potreby, J=Zákazka(konst), K=Číslo rezervácie(prázdne),
+    // L=ID činnosti, M=Názov činnosti, N=Stanovište(etáž)
+    const header=['ID materiálu','Text materiálu','','Množstvo','M.J.','Stanovisko','Výrobný sklad','Číslo vozňa','Dátum potreby','Zákazka','Číslo rezervácie','ID činnosti','Názov činnosti','Stanovište'];
+    const data=[header,...rows.filter(r=>r.cisloMaterialu!=='—').map(r=>[
+      r.cisloMaterialu,   // A
+      r.nazovMaterialu,   // B
+      '',                 // C voľné
+      r.mnozstvo,         // D
+      r.jednotka,         // E
+      konstF,             // F stanovisko
+      konstG,             // G výrobný sklad
+      r.zostavVp,         // H číslo vozňa (Vozeň-Súprava)
+      r.datumStart,       // I dátum potreby
+      konstJ,             // J zákazka
+      '',                 // K číslo rezervácie
+      r.kzm,              // L ID činnosti
+      r.cinNazov,         // M názov činnosti
+      r.stanoviste,       // N stanovište
+    ])];
+
+    const ws=XLSX.utils.aoa_to_sheet(data);
+    ws['!cols']=[{wch:16},{wch:32},{wch:6},{wch:10},{wch:6},{wch:10},{wch:10},{wch:14},{wch:12},{wch:14},{wch:10},{wch:12},{wch:28},{wch:10}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Materiál');
+    XLSX.writeFile(wb,`material_${fromVal}_${toVal}.xlsx`);
+  };
+}
+
+// ── PLÁN ÚLOH pre logistu (read-only) ──
+let logJobFilter='all';
+let logVpFilter='';
+
+function renderPlanLog(){
+  const content=document.getElementById('plan-log-content');
+  if(!content)return;
+  const status=document.getElementById('log-job-status')?.value||'all';
+
+  let jobs=S.jobs.filter(j=>{
+    if(status==='active'&&j.done)return false;
+    if(status==='done'&&!j.done)return false;
+    if(logVpFilter&&j.vp!==logVpFilter)return false;
+    return true;
+  });
+
+  if(!jobs.length){content.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>Žiadne úlohy</div>';return;}
+
+  content.innerHTML=jobs.map(j=>`
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(240,165,0,0.15);color:var(--acc);font-weight:600">${j.vp||''}</span>
+            <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--bg2);color:var(--text3)">${j.zostava||''}</span>
+            <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--bg2);color:var(--text3)">${j.cinId||''}</span>
+            <span class="prof-badge pf-${profClass(j.prof)}">${j.prof}</span>
+          </div>
+          <div style="font-weight:700;font-size:14px;color:var(--text)">${j.cinName}</div>
+          ${j.desc?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${j.desc}</div>`:''}
+          <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap;font-size:11px;color:var(--text3)">
+            <span>⏱ ${j.nh} Nh</span>
+            <span>👥 ${j.workerNames?j.workerNames.join(', '):''}</span>
+            <span>📅 ${fmtDate(j.startDate)} → ${fmtDate(j.endDate)}</span>
+          </div>
+        </div>
+        ${j.done?'<span style="font-size:11px;padding:3px 10px;border-radius:6px;background:rgba(34,197,94,0.1);color:var(--green);font-weight:600;white-space:nowrap">✓ Splnená</span>':''}
+      </div>
+    </div>`).join('');
+}
+
+function initPlanLogFilters(){
+  const pills=document.getElementById('log-vp-filter-pills');
+  if(!pills)return;
+  const vpList=S.vpList||[];
+  pills.innerHTML=`<button class="fpill${logVpFilter===''?' active':''}" onclick="logVpFilter='';document.querySelectorAll('#log-vp-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPlanLog()">Všetky</button>`+
+    vpList.map(vp=>`<button class="fpill${logVpFilter===vp?' active':''}" onclick="logVpFilter='${vp}';document.querySelectorAll('#log-vp-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPlanLog()" style="background:var(--bg3)">${vp}</button>`).join('');
+  renderPlanLog();
+}
+
+// ── KAPACITA ──
+function kapSetMonth(){
+  const now=new Date();
+  const from=new Date(now.getFullYear(),now.getMonth(),1);
+  const to=new Date(now.getFullYear(),now.getMonth()+1,0);
+  document.getElementById('kap-from').value=from.toISOString().slice(0,10);
+  document.getElementById('kap-to').value=to.toISOString().slice(0,10);
+  renderKapacita();
+}
+function kapSetNext(){
+  const now=new Date();
+  const from=new Date(now.getFullYear(),now.getMonth()+1,1);
+  const to=new Date(now.getFullYear(),now.getMonth()+2,0);
+  document.getElementById('kap-from').value=from.toISOString().slice(0,10);
+  document.getElementById('kap-to').value=to.toISOString().slice(0,10);
+  renderKapacita();
+}
+
+function renderKapacita(){
+  const fromEl=document.getElementById('kap-from');
+  const toEl=document.getElementById('kap-to');
+  if(!fromEl||!toEl)return;
+  if(!fromEl.value||!toEl.value){kapSetMonth();return;}
+
+  const from=new Date(fromEl.value);
+  const to=new Date(toEl.value);
+  to.setHours(23,59,59);
+
+  // Zober joby ktoré majú prienik s obdobím
+  const jobs=S.jobs.filter(j=>{
+    if(!j.startDate||!j.endDate)return false;
+    const start=new Date(j.startDate);
+    const end=new Date(j.endDate);
+    return start<=to&&end>=from;
+  });
+
+  // Sumuj Nh po profesiách (proporcionálne k prekrytiu)
+  const profNh={};
+  jobs.forEach(j=>{
+    const prof=String(j.prof||'?');
+    if(!profNh[prof])profNh[prof]=0;
+    profNh[prof]+=j.nh||0;
+  });
+
+  const sorted=Object.entries(profNh).sort((a,b)=>b[1]-a[1]);
+  const tblEl=document.getElementById('kap-table');
+  const chartEl=document.getElementById('kap-chart');
+  if(!tblEl||!chartEl)return;
+
+  if(!sorted.length){
+    tblEl.innerHTML='<div class="empty-state"><div class="empty-icon">📈</div>Žiadne naplánované Nh v tomto období</div>';
+    chartEl.innerHTML='';return;
+  }
+
+  const total=sorted.reduce((s,[,v])=>s+v,0);
+  tblEl.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
+    <thead><tr style="background:var(--bg3);border-bottom:2px solid var(--border)">
+      <th style="padding:8px;text-align:left;font-size:10px;color:var(--text3)">Profesia</th>
+      <th style="padding:8px;text-align:right;font-size:10px;color:var(--text3)">Naplánované Nh</th>
+      <th style="padding:8px;text-align:right;font-size:10px;color:var(--text3)">%</th>
+    </tr></thead>
+    <tbody>${sorted.map(([prof,nh],i)=>`<tr style="border-bottom:1px solid var(--border);background:${i%2?'var(--bg3)':'transparent'}">
+      <td style="padding:7px 8px;font-weight:600"><span class="prof-badge pf-${profClass(prof)}">${prof}</span></td>
+      <td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--acc)">${nh.toFixed(1)}</td>
+      <td style="padding:7px 8px;text-align:right;color:var(--text3)">${((nh/total)*100).toFixed(1)}%</td>
+    </tr>`).join('')}
+    <tr style="border-top:2px solid var(--border);background:var(--bg3)">
+      <td style="padding:7px 8px;font-weight:700">SPOLU</td>
+      <td style="padding:7px 8px;text-align:right;font-weight:700;color:var(--acc)">${total.toFixed(1)}</td>
+      <td style="padding:7px 8px;text-align:right;color:var(--text3)">100%</td>
+    </tr></tbody>
+  </table>`;
+
+  // Jednoduchý CSS bar chart
+  const maxNh=sorted[0][1];
+  const colors=['var(--acc)','var(--teal)','var(--blue)','var(--purple)','var(--red)','var(--green)'];
+  chartEl.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;padding:8px 0">
+    ${sorted.map(([prof,nh],i)=>`
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:80px;text-align:right;font-size:11px;font-weight:600;color:var(--text2);flex-shrink:0">${prof}</div>
+        <div style="flex:1;background:var(--bg3);border-radius:4px;height:22px;overflow:hidden">
+          <div style="height:100%;width:${(nh/maxNh*100).toFixed(1)}%;background:${colors[i%colors.length]};border-radius:4px;transition:width 0.4s;display:flex;align-items:center;padding-left:8px">
+            <span style="font-size:10px;color:#fff;font-weight:700;white-space:nowrap">${nh.toFixed(0)} Nh</span>
+          </div>
+        </div>
+      </div>`).join('')}
+  </div>`;
 }
 
 

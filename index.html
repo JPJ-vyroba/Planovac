@@ -516,6 +516,23 @@ input[type=date],input[type=time]{color-scheme:dark}
       </div>
 
       <div class="card">
+        <div class="card-title">Import NSM (Norma spotreby materiálu)</div>
+        <div class="col-note">Názov súboru musí obsahovať zostavu: <span>14Ev4_520_<b>HV5</b>_05-09-2025_NSM.xlsx</span> — každá zostava sa importuje samostatne, nová verzia prepíše len tú zostavu</div>
+        <div id="nsm-zostava-status" style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap"></div>
+        <div class="drop-zone" id="drop-nsm" onclick="document.getElementById('file-nsm').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="handleDropNsm(event)">
+          <div class="drop-icon">📦</div>
+          <div class="drop-title">Pretiahni NSM súbor sem alebo klikni</div>
+          <div class="drop-sub">14Ev4_520_HV5_... · 14Ev4_521_HV6_... · 14Ev4_523_VV5_... · 14Ev4_524_VV6_...</div>
+        </div>
+        <input type="file" id="file-nsm" accept=".xlsx,.xls,.xlsm" style="display:none" onchange="handleFileNsm(this.files[0])">
+        <div id="nsm-import-msg" style="margin-top:8px"></div>
+        <div id="nsm-import-stats" style="margin-top:6px;font-size:12px;color:var(--text3)"></div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Import pracovníkov z Excelu</div>
         <div class="col-note">Stĺpce: <span>A</span>=Meno &nbsp;<span>B</span>=Profesia &nbsp;<span>C</span>=Hodiny/deň (napr. 7.5) — prvý riadok ako hlavička sa preskočí</div>
         <div class="drop-zone" id="drop-wkr" onclick="document.getElementById('file-wkr').click()"
@@ -577,23 +594,6 @@ input[type=date],input[type=time]{color-scheme:dark}
 <!-- MATERIAL PANEL -->
 <div class="ext-panel" id="panel-material" style="padding:1.5rem">
   <div class="card">
-    <div class="card-title">Import NSM (Norma spotreby materiálu)</div>
-    <div class="col-note">Názov súboru musí obsahovať zostavu: <span>14Ev4_520_<b>HV5</b>_05-09-2025_NSM.xlsx</span> — každá zostava sa importuje samostatne, nová verzia prepíše len tú zostavu</div>
-    <div id="nsm-zostava-status" style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap"></div>
-    <div class="drop-zone" id="drop-nsm" onclick="document.getElementById('file-nsm').click()"
-      ondragover="event.preventDefault();this.classList.add('drag')"
-      ondragleave="this.classList.remove('drag')"
-      ondrop="handleDropNsm(event)">
-      <div class="drop-icon">📦</div>
-      <div class="drop-title">Pretiahni NSM súbor sem alebo klikni</div>
-      <div class="drop-sub">14Ev4_520_HV5_... · 14Ev4_521_HV6_... · 14Ev4_523_VV5_... · 14Ev4_524_VV6_...</div>
-    </div>
-    <input type="file" id="file-nsm" accept=".xlsx,.xls" style="display:none" onchange="handleFileNsm(this.files[0])">
-    <div id="nsm-import-msg" style="margin-top:8px"></div>
-    <div id="nsm-import-stats" style="margin-top:6px;font-size:12px;color:var(--text3)"></div>
-  </div>
-
-  <div class="card">
     <div class="section-head">
       <h3>Zoznam materiálu pre plánované činnosti</h3>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
@@ -615,6 +615,7 @@ input[type=date],input[type=time]{color-scheme:dark}
         <button class="btn btn-accent btn-sm" onclick="exportMaterial()">⇓ Export XLSX</button>
       </div>
     </div>
+    <div id="nsm-status-bar" style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap"></div>
     <div id="mat-summary" style="margin-bottom:10px;font-size:12px;color:var(--text3)"></div>
     <div class="tbl-wrap"><div id="mat-table"></div></div>
   </div>
@@ -877,6 +878,7 @@ async function startApp(){
   renderUserBadge();
   applyRoleUI();
   renderAll();
+  renderNsmStatus();
   logAction('Prihlásil sa');
   setTimeout(checkOverdueOnLogin, 500);
 }
@@ -3579,6 +3581,7 @@ async function renderAuditLog(){
 // UPOZORNENIE PO TERMÍNE
 // ═══════════════════════════════════════════════════════════════════
 function checkOverdueOnLogin(){
+  if(isLogista())return; // Logista nevidí upozornenia po termíne
   const today=todayStr();
   const now=new Date();
   const nowH=now.getHours()+(now.getMinutes()/60);
@@ -4240,18 +4243,30 @@ function handleFileNsm(file){
 }
 
 function renderNsmStatus(){
-  const el=document.getElementById('nsm-zostava-status');
-  if(!el)return;
   const zostavy=['HV5','HV6','VV5','VV6'];
-  el.innerHTML=zostavy.map(z=>{
-    const cnt=(S.nsm||[]).filter(n=>n.zostava===z).length;
-    const ok=cnt>0;
-    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:${ok?'rgba(16,185,129,0.1)':'var(--bg3)'};border:1px solid ${ok?'rgba(16,185,129,0.3)':'var(--border)'}">
-      <span style="font-size:14px">${ok?'✅':'⬜'}</span>
-      <span style="font-size:12px;font-weight:600;color:${ok?'#10b981':'var(--text3)'}">${z}</span>
-      ${ok?`<span style="font-size:10px;color:var(--text3)">${cnt} pol.</span>`:'<span style="font-size:10px;color:var(--text3)">nenačítané</span>'}
-    </div>`;
-  }).join('');
+  // Status v import paneli (admin)
+  const el=document.getElementById('nsm-zostava-status');
+  if(el){
+    el.innerHTML=zostavy.map(z=>{
+      const cnt=(S.nsm||[]).filter(n=>n.zostava===z).length;
+      const ok=cnt>0;
+      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:${ok?'rgba(16,185,129,0.1)':'var(--bg3)'};border:1px solid ${ok?'rgba(16,185,129,0.3)':'var(--border)'}">
+        <span style="font-size:14px">${ok?'✅':'⬜'}</span>
+        <span style="font-size:12px;font-weight:600;color:${ok?'#10b981':'var(--text3)'}">${z}</span>
+        ${ok?`<span style="font-size:10px;color:var(--text3)">${cnt} pol.</span>`:'<span style="font-size:10px;color:var(--text3)">nenačítané</span>'}
+      </div>`;
+    }).join('');
+  }
+  // Malý status bar v material paneli (logista)
+  const bar=document.getElementById('nsm-status-bar');
+  if(bar){
+    bar.innerHTML=zostavy.map(z=>{
+      const cnt=(S.nsm||[]).filter(n=>n.zostava===z).length;
+      return `<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${cnt?'rgba(16,185,129,0.1)':'var(--bg3)'};border:1px solid ${cnt?'rgba(16,185,129,0.3)':'var(--border)'};color:${cnt?'#10b981':'var(--text3)'}">
+        ${z}: ${cnt?cnt+' pol.':'—'}
+      </span>`;
+    }).join('');
+  }
 }
 
 function initMaterialPanel(){

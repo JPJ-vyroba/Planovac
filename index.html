@@ -293,9 +293,18 @@ input[type=date],input[type=time]{color-scheme:dark}
     <!-- PLAN -->
     <div class="tab-panel active" id="panel-plan">
       <div class="stats-bar" id="stats-bar"></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text3);font-weight:600">Súprava filter:</span>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text3);font-weight:600">Súprava:</span>
         <div id="vp-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text3);font-weight:600">Profesia:</span>
+        <div id="prof-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+        <span style="font-size:11px;color:var(--text3);font-weight:600;margin-left:8px">Obdobie:</span>
+        <input type="date" id="job-date-from" onchange="renderJobs()" style="padding:4px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
+        <span style="font-size:11px;color:var(--text3)">—</span>
+        <input type="date" id="job-date-to" onchange="renderJobs()" style="padding:4px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('job-date-from').value='';document.getElementById('job-date-to').value='';renderJobs()">Zrušiť filter</button>
       </div>
       <div class="card">
         <div class="card-title">Nová úloha</div>
@@ -623,19 +632,31 @@ input[type=date],input[type=time]{color-scheme:dark}
   </div>
 </div>
 
-<!-- PANEL: Plán úloh (logista - read only) -->
+<!-- PANEL: Plán úloh (logista + manažér - read only) -->
 <div class="ext-panel" id="panel-plan-log" style="padding:1.5rem">
   <div class="card">
     <div class="section-head">
       <h3>Plán úloh</h3>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <div id="log-vp-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
         <select id="log-job-status" onchange="renderPlanLog()" style="padding:5px 8px;font-size:12px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
           <option value="all">Všetky</option>
           <option value="active">Aktívne</option>
           <option value="done">Splnené</option>
         </select>
       </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--text3);font-weight:600">Súprava:</span>
+      <div id="log-vp-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--text3);font-weight:600">Profesia:</span>
+      <div id="log-prof-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+      <span style="font-size:11px;color:var(--text3);font-weight:600;margin-left:8px">Obdobie:</span>
+      <input type="date" id="log-date-from" onchange="renderPlanLog()" style="padding:4px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
+      <span style="font-size:11px;color:var(--text3)">—</span>
+      <input type="date" id="log-date-to" onchange="renderPlanLog()" style="padding:4px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('log-date-from').value='';document.getElementById('log-date-to').value='';renderPlanLog()">Zrušiť</button>
     </div>
     <div id="plan-log-content"></div>
   </div>
@@ -675,6 +696,7 @@ input[type=date],input[type=time]{color-scheme:dark}
 // ═══════════════════════════════════════════════════════════════════
 const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'THP pracovníci',overview:'Prehľad',remaining:'Zostávajúce',auditlog:'Audit log','plan-log':'Plán úloh',kapacita:'Kapacita',material:'Materiál'};
 let jobFilter='all';
+let activeProfFilter='';
 let _assignParams=null;
 let S={
   workers:[],
@@ -958,7 +980,7 @@ function applyRoleUI(){
   show('nav-import',adm);show('nav-export',!mgr&&!log);
   show('nav-masters',adm);show('nav-auditlog',adm);show('nav-overview',mgr);show('nav-remaining',mgr);
   show('nav-kapacita',mgr||log||adm);
-  show('nav-material',log||adm);show('nav-plan-log',log);
+  show('nav-material',log||adm);show('nav-plan-log',log||mgr);
   // Gantt — vidí majster, admin aj manažér (cez rovnaký nav-gantt)
   const ganttEl=document.getElementById('nav-gantt');
   if(ganttEl)ganttEl.style.display=log?'none':'flex';
@@ -1443,8 +1465,14 @@ function renderJobs(){
   const el=document.getElementById('jobs-list');
   let jobs=[...S.jobs];
   if(activeVpFilter)jobs=jobs.filter(j=>!j.vp||j.vp===activeVpFilter);
+  if(activeProfFilter)jobs=jobs.filter(j=>String(j.prof)===String(activeProfFilter));
   if(jobFilter=='active')jobs=jobs.filter(j=>!j.done);
   if(jobFilter=='done')jobs=jobs.filter(j=>j.done);
+  // Filtrovanie podľa obdobia — úlohy ktoré majú prienik s vybraným rozsahom
+  const dateFrom=document.getElementById('job-date-from')?.value||'';
+  const dateTo=document.getElementById('job-date-to')?.value||'';
+  if(dateFrom)jobs=jobs.filter(j=>!j.endDate||j.endDate>=dateFrom);
+  if(dateTo)jobs=jobs.filter(j=>!j.startDate||j.startDate<=dateTo);
   if(!jobs.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">◌</div>Žiadne úlohy</div>';return;}
   el.innerHTML=jobs.map(j=>{
     // Worker chips — each clickable to remove
@@ -2200,6 +2228,7 @@ function renderVpManager(){
         <div style="display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 10px">
           <span style="font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--acc)">${vp}</span>
           <span style="font-size:10px;color:var(--text3)">${S.cinnosti.filter(c=>c.vp===vp).length} činn.</span>
+          <button onclick="renameVpPrompt('${vp}')" class="btn btn-outline btn-sm" style="padding:2px 6px;font-size:10px" title="Premenovať">✏️</button>
           <button onclick="removeVp('${vp}')" class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px">✕</button>
         </div>`).join('')}
     </div>
@@ -2210,6 +2239,32 @@ function renderVpManager(){
       </div>
       <button class="btn btn-accent btn-sm" onclick="addMoreVp()">+ Pridať súpravu</button>
     </div>`;
+}
+
+function renameVpPrompt(oldVp){
+  const newVp=prompt(`Premenovať súpravu "${oldVp}" na:`, oldVp);
+  if(!newVp||newVp===oldVp||!newVp.trim())return;
+  const trimmed=newVp.trim();
+  if(S.vpList.includes(trimmed)){alert(`Súprava "${trimmed}" už existuje.`);return;}
+  // Premenuj vo vpList
+  const idx=S.vpList.indexOf(oldVp);
+  if(idx>=0)S.vpList[idx]=trimmed;
+  // Premenuj v cinnostiach
+  S.cinnosti.forEach(c=>{if(c.vp===oldVp)c.vp=trimmed;});
+  // Premenuj v joboch
+  S.jobs.forEach(j=>{if(j.vp===oldVp)j.vp=trimmed;});
+  saveNow();
+  renderAll();
+  logAction('Premenoval súpravu',`${oldVp} → ${trimmed}`);
+}
+
+
+function renderProfFilterPills(){
+  const el=document.getElementById('prof-filter-pills');
+  if(!el)return;
+  const profs=[...new Set(S.jobs.map(j=>String(j.prof||'')).filter(Boolean))].sort();
+  el.innerHTML=`<button class="fpill${activeProfFilter===''?' active':''}" onclick="activeProfFilter='';document.querySelectorAll('#prof-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderJobs()">Všetky</button>`+
+    profs.map(p=>`<button class="fpill${activeProfFilter===p?' active':''}" onclick="activeProfFilter='${p}';document.querySelectorAll('#prof-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderJobs()" style="background:var(--bg3)">${p}</button>`).join('');
 }
 
 function renderVpFilterPills(){
@@ -2345,11 +2400,11 @@ function renderAll(){
   showN('nav-plan',!mgr&&!log);showN('nav-cinnosti',!mgr&&!log);showN('nav-workers',!mgr&&!log);
   showN('nav-import',adm);showN('nav-export',!mgr&&!log);showN('nav-masters',adm);showN('nav-overview',mgr);showN('nav-remaining',mgr);
   showN('nav-kapacita',mgr||log||adm);
-  showN('nav-material',log||adm);showN('nav-plan-log',log);
+  showN('nav-material',log||adm);showN('nav-plan-log',log||mgr);
   const ganttElN=document.getElementById('nav-gantt');
   if(ganttElN)ganttElN.style.display=log?'none':'flex';
   renderMasters();
-  renderStats();renderJobs();renderCinnosti();renderWorkers();renderCinSelect();renderVpManager();renderVpFilterPills();
+  renderStats();renderJobs();renderCinnosti();renderWorkers();renderCinSelect();renderVpManager();renderVpFilterPills();renderProfFilterPills();
   // Show assignment import status
   const statusEl=document.getElementById('assign-import-status');
   if(statusEl&&S.cinAssignments){
@@ -4514,18 +4569,22 @@ function exportMaterial(){
 }
 
 // ── PLÁN ÚLOH pre logistu (read-only) ──
-let logJobFilter='all';
-let logVpFilter='';
+let logProfFilter='';
 
 function renderPlanLog(){
   const content=document.getElementById('plan-log-content');
   if(!content)return;
   const status=document.getElementById('log-job-status')?.value||'all';
+  const dateFrom=document.getElementById('log-date-from')?.value||'';
+  const dateTo=document.getElementById('log-date-to')?.value||'';
 
   let jobs=S.jobs.filter(j=>{
     if(status==='active'&&j.done)return false;
     if(status==='done'&&!j.done)return false;
     if(logVpFilter&&j.vp!==logVpFilter)return false;
+    if(logProfFilter&&String(j.prof)!==String(logProfFilter))return false;
+    if(dateFrom&&j.endDate&&j.endDate<dateFrom)return false;
+    if(dateTo&&j.startDate&&j.startDate>dateTo)return false;
     return true;
   });
 
@@ -4555,11 +4614,20 @@ function renderPlanLog(){
 }
 
 function initPlanLogFilters(){
+  // VP pills
   const pills=document.getElementById('log-vp-filter-pills');
-  if(!pills)return;
-  const vpList=S.vpList||[];
-  pills.innerHTML=`<button class="fpill${logVpFilter===''?' active':''}" onclick="logVpFilter='';document.querySelectorAll('#log-vp-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPlanLog()">Všetky</button>`+
-    vpList.map(vp=>`<button class="fpill${logVpFilter===vp?' active':''}" onclick="logVpFilter='${vp}';document.querySelectorAll('#log-vp-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPlanLog()" style="background:var(--bg3)">${vp}</button>`).join('');
+  if(pills){
+    const vpList=S.vpList||[];
+    pills.innerHTML=`<button class="fpill${logVpFilter===''?' active':''}" onclick="logVpFilter='';document.querySelectorAll('#log-vp-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPlanLog()">Všetky</button>`+
+      vpList.map(vp=>`<button class="fpill${logVpFilter===vp?' active':''}" onclick="logVpFilter='${vp}';document.querySelectorAll('#log-vp-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPlanLog()" style="background:var(--bg3)">${vp}</button>`).join('');
+  }
+  // Profesia pills
+  const profPills=document.getElementById('log-prof-filter-pills');
+  if(profPills){
+    const profs=[...new Set(S.jobs.map(j=>String(j.prof||'')).filter(Boolean))].sort();
+    profPills.innerHTML=`<button class="fpill${logProfFilter===''?' active':''}" onclick="logProfFilter='';document.querySelectorAll('#log-prof-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPlanLog()">Všetky</button>`+
+      profs.map(p=>`<button class="fpill${logProfFilter===p?' active':''}" onclick="logProfFilter='${p}';document.querySelectorAll('#log-prof-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderPlanLog()" style="background:var(--bg3)">${p}</button>`).join('');
+  }
   renderPlanLog();
 }
 

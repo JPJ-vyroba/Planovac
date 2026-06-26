@@ -4606,10 +4606,9 @@ function renderKapacita(){
     const blocks=j.schedule||[];
     if(blocks.length){
       blocks.forEach(b=>{
-        const bDate=b.date||b.start?.slice(0,10)||'';
+        const bDate=b.date||'';
         if(bDate>=fromStr&&bDate<=toStr){
-          // Každý blok má start a end hodiny
-          const h=(b.end||0)-(b.start||0);
+          const h=(b.endH||0)-(b.startH||0);
           if(h>0)profNh[prof]+=h;
         }
       });

@@ -268,7 +268,6 @@ input[type=date],input[type=time]{color-scheme:dark}
   <div class="nav-item" id="nav-auditlog" onclick="nav('auditlog',this);renderAuditLog()" style="display:none"><span class="nav-icon">📋</span> Audit log</div>
   <div class="nav-item" id="nav-overview" onclick="nav('overview',this)" style="display:none"><span class="nav-icon">📊</span> Prehľad</div>
   <div class="nav-item" id="nav-remaining" onclick="nav('remaining',this)" style="display:none"><span class="nav-icon">⏳</span> Zostávajúce</div>
-  <div class="nav-item" id="nav-gantt-mgr" onclick="nav('gantt',this)" style="display:none"><span class="nav-icon">📅</span> Gantt</div>
   <div class="nav-item" id="nav-kapacita" onclick="nav('kapacita',this);renderKapacita()" style="display:none"><span class="nav-icon">📈</span> Kapacita</div>
   <div class="nav-item" id="nav-material" onclick="nav('material',this);initMaterialPanel()" style="display:none"><span class="nav-icon">📦</span> Materiál</div>
   <div class="nav-item" id="nav-plan-log" onclick="nav('plan-log',this)" style="display:none"><span class="nav-icon">📋</span> Plán úloh</div>
@@ -624,9 +623,6 @@ input[type=date],input[type=time]{color-scheme:dark}
   </div>
 </div>
 
-  </div>
-</div>
-
 <!-- PANEL: Plán úloh (logista - read only) -->
 <div class="ext-panel" id="panel-plan-log" style="padding:1.5rem">
   <div class="card">
@@ -666,6 +662,9 @@ input[type=date],input[type=time]{color-scheme:dark}
     <div id="kap-table" style="margin-bottom:20px"></div>
     <div id="kap-chart" style="height:220px;position:relative"></div>
   </div>
+</div>
+
+</div>
 </div>
 
 
@@ -958,11 +957,11 @@ function applyRoleUI(){
   show('nav-plan',!mgr&&!log);show('nav-cinnosti',!mgr&&!log);show('nav-workers',!mgr&&!log);
   show('nav-import',adm);show('nav-export',!mgr&&!log);
   show('nav-masters',adm);show('nav-auditlog',adm);show('nav-overview',mgr);show('nav-remaining',mgr);
-  show('nav-gantt-mgr',mgr);show('nav-kapacita',mgr||log||adm);
+  show('nav-kapacita',mgr||log||adm);
   show('nav-material',log||adm);show('nav-plan-log',log);
-  // Gantt vidí majster a admin (nie cez nav-gantt-mgr ale cez existujúci nav-gantt)
+  // Gantt — vidí majster, admin aj manažér (cez rovnaký nav-gantt)
   const ganttEl=document.getElementById('nav-gantt');
-  if(ganttEl)ganttEl.style.display=(mgr||log)?'none':'flex';
+  if(ganttEl)ganttEl.style.display=log?'none':'flex';
   if(mgr)nav('overview',document.getElementById('nav-overview'));
   if(log){nav('material',document.getElementById('nav-material'));initMaterialPanel();}
 }
@@ -2345,8 +2344,10 @@ function renderAll(){
   const showN=(id,v)=>{const e=document.getElementById(id);if(e)e.style.display=v?'flex':'none';};
   showN('nav-plan',!mgr&&!log);showN('nav-cinnosti',!mgr&&!log);showN('nav-workers',!mgr&&!log);
   showN('nav-import',adm);showN('nav-export',!mgr&&!log);showN('nav-masters',adm);showN('nav-overview',mgr);showN('nav-remaining',mgr);
-  showN('nav-gantt-mgr',mgr);showN('nav-kapacita',mgr||log||adm);
+  showN('nav-kapacita',mgr||log||adm);
   showN('nav-material',log||adm);showN('nav-plan-log',log);
+  const ganttElN=document.getElementById('nav-gantt');
+  if(ganttElN)ganttElN.style.display=log?'none':'flex';
   renderMasters();
   renderStats();renderJobs();renderCinnosti();renderWorkers();renderCinSelect();renderVpManager();renderVpFilterPills();
   // Show assignment import status
@@ -3639,10 +3640,12 @@ async function renderAuditLog(){
 // ═══════════════════════════════════════════════════════════════════
 function checkOverdueOnLogin(){
   if(isLogista())return; // Logista nevidí upozornenia po termíne
+  // Manažér nemá popup — overdue vidí v Prehľade
+  if(isManager())return;
   const today=todayStr();
   const now=new Date();
   const nowH=now.getHours()+(now.getMinutes()/60);
-  
+
   // Nájdi aktívne úlohy po termíne (len vlastná profesia)
   const overdue=S.jobs.filter(j=>{
     if(j.done)return false;

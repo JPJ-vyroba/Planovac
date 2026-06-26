@@ -4590,21 +4590,39 @@ function renderKapacita(){
   const from=new Date(fromEl.value);
   const to=new Date(toEl.value);
   to.setHours(23,59,59);
+  const fromStr=fromEl.value;
+  const toStr=toEl.value;
 
-  // Zober joby ktoré majú prienik s obdobím
-  const jobs=S.jobs.filter(j=>{
-    if(!j.startDate||!j.endDate)return false;
-    const start=new Date(j.startDate);
-    const end=new Date(j.endDate);
-    return start<=to&&end>=from;
-  });
-
-  // Sumuj Nh po profesiách (proporcionálne k prekrytiu)
+  // Sumuj Nh po profesiách — len bloky ktoré padajú do vybraného obdobia
   const profNh={};
-  jobs.forEach(j=>{
+  S.jobs.forEach(j=>{
+    if(!j.startDate||!j.endDate)return;
+    // Rýchla kontrola prieniku
+    if(j.startDate>toStr||j.endDate<fromStr)return;
     const prof=String(j.prof||'?');
     if(!profNh[prof])profNh[prof]=0;
-    profNh[prof]+=j.nh||0;
+
+    // Použijem schedule bloky ak existujú
+    const blocks=j.schedule||[];
+    if(blocks.length){
+      blocks.forEach(b=>{
+        const bDate=b.date||b.start?.slice(0,10)||'';
+        if(bDate>=fromStr&&bDate<=toStr){
+          // Každý blok má start a end hodiny
+          const h=(b.end||0)-(b.start||0);
+          if(h>0)profNh[prof]+=h;
+        }
+      });
+    } else {
+      // Fallback — proporcionálne k prekrytiu
+      const jStart=new Date(j.startDate);
+      const jEnd=new Date(j.endDate);
+      const overlapStart=jStart<from?from:jStart;
+      const overlapEnd=jEnd>to?to:jEnd;
+      const totalDays=(jEnd-jStart)/(1000*60*60*24)||1;
+      const overlapDays=(overlapEnd-overlapStart)/(1000*60*60*24);
+      if(overlapDays>0)profNh[prof]+=(j.nh||0)*(overlapDays/totalDays);
+    }
   });
 
   const sorted=Object.entries(profNh).sort((a,b)=>b[1]-a[1]);

@@ -293,18 +293,24 @@ input[type=date],input[type=time]{color-scheme:dark}
     <!-- PLAN -->
     <div class="tab-panel active" id="panel-plan">
       <div class="stats-bar" id="stats-bar"></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text3);font-weight:600">Súprava:</span>
-        <div id="vp-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text3);font-weight:600">Profesia:</span>
-        <div id="prof-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-        <span style="font-size:11px;color:var(--text3);font-weight:600;margin-left:8px">Obdobie:</span>
-        <input type="date" id="job-date-from" onchange="renderJobs()" style="padding:4px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
-        <span style="font-size:11px;color:var(--text3)">—</span>
-        <input type="date" id="job-date-to" onchange="renderJobs()" style="padding:4px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
-        <button class="btn btn-outline btn-sm" onclick="document.getElementById('job-date-from').value='';document.getElementById('job-date-to').value='';renderJobs()">Zrušiť filter</button>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 12px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap">SÚPRAVA</span>
+          <div id="vp-filter-pills" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+        </div>
+        <div style="width:1px;height:20px;background:var(--border);flex-shrink:0"></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap">PROFESIA</span>
+          <div id="prof-filter-pills" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+        </div>
+        <div style="width:1px;height:20px;background:var(--border);flex-shrink:0"></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap">OBDOBIE</span>
+          <input type="date" id="job-date-from" onchange="renderJobs()" style="padding:3px 6px;font-size:11px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);color:var(--text);width:130px">
+          <span style="font-size:11px;color:var(--text3)">—</span>
+          <input type="date" id="job-date-to" onchange="renderJobs()" style="padding:3px 6px;font-size:11px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);color:var(--text);width:130px">
+          <button class="btn btn-outline btn-sm" style="padding:3px 8px;font-size:10px" onclick="document.getElementById('job-date-from').value='';document.getElementById('job-date-to').value='';renderJobs()">✕</button>
+        </div>
       </div>
       <div class="card">
         <div class="card-title">Nová úloha</div>
@@ -637,26 +643,30 @@ input[type=date],input[type=time]{color-scheme:dark}
   <div class="card">
     <div class="section-head">
       <h3>Plán úloh</h3>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select id="log-job-status" onchange="renderPlanLog()" style="padding:5px 8px;font-size:12px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
-          <option value="all">Všetky</option>
-          <option value="active">Aktívne</option>
-          <option value="done">Splnené</option>
-        </select>
+      <select id="log-job-status" onchange="renderPlanLog()" style="padding:5px 8px;font-size:12px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
+        <option value="all">Všetky</option>
+        <option value="active">Aktívne</option>
+        <option value="done">Splnené</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 12px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap">SÚPRAVA</span>
+        <div id="log-vp-filter-pills" style="display:flex;gap:3px;flex-wrap:wrap"></div>
       </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
-      <span style="font-size:11px;color:var(--text3);font-weight:600">Súprava:</span>
-      <div id="log-vp-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-      <span style="font-size:11px;color:var(--text3);font-weight:600">Profesia:</span>
-      <div id="log-prof-filter-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-      <span style="font-size:11px;color:var(--text3);font-weight:600;margin-left:8px">Obdobie:</span>
-      <input type="date" id="log-date-from" onchange="renderPlanLog()" style="padding:4px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
-      <span style="font-size:11px;color:var(--text3)">—</span>
-      <input type="date" id="log-date-to" onchange="renderPlanLog()" style="padding:4px 8px;font-size:11px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text)">
-      <button class="btn btn-outline btn-sm" onclick="document.getElementById('log-date-from').value='';document.getElementById('log-date-to').value='';renderPlanLog()">Zrušiť</button>
+      <div style="width:1px;height:20px;background:var(--border);flex-shrink:0"></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap">PROFESIA</span>
+        <div id="log-prof-filter-pills" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+      </div>
+      <div style="width:1px;height:20px;background:var(--border);flex-shrink:0"></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap">OBDOBIE</span>
+        <input type="date" id="log-date-from" onchange="renderPlanLog()" style="padding:3px 6px;font-size:11px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);color:var(--text);width:130px">
+        <span style="font-size:11px;color:var(--text3)">—</span>
+        <input type="date" id="log-date-to" onchange="renderPlanLog()" style="padding:3px 6px;font-size:11px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);color:var(--text);width:130px">
+        <button class="btn btn-outline btn-sm" style="padding:3px 8px;font-size:10px" onclick="document.getElementById('log-date-from').value='';document.getElementById('log-date-to').value='';renderPlanLog()">✕</button>
+      </div>
     </div>
     <div id="plan-log-content"></div>
   </div>
@@ -4570,6 +4580,7 @@ function exportMaterial(){
 
 // ── PLÁN ÚLOH pre logistu (read-only) ──
 let logProfFilter='';
+let logVpFilter='';
 
 function renderPlanLog(){
   const content=document.getElementById('plan-log-content');

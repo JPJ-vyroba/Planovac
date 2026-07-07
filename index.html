@@ -5083,6 +5083,9 @@ function hmgRealityFor(vozen,vp){
   return out;
 }
 
+// Lokálny YYYY-MM-DD (bez UTC posunu — toISOString by v GMT+ posunul o deň späť)
+function hmgISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+
 // Zoom stav harmonogramu
 let hmgZoom='month';           // 'month' | 'quarter' | 'all'
 let hmgViewStart=null;         // YYYY-MM-DD — prvý deň zobrazeného výseku
@@ -5096,18 +5099,19 @@ function hmgToday(rerender=true){
   const t=new Date();
   if(hmgZoom==='quarter'){
     const qm=Math.floor(t.getMonth()/3)*3;
-    hmgViewStart=new Date(t.getFullYear(),qm,1).toISOString().slice(0,10);
+    hmgViewStart=hmgISO(new Date(t.getFullYear(),qm,1));
   }else{
-    hmgViewStart=new Date(t.getFullYear(),t.getMonth(),1).toISOString().slice(0,10);
+    hmgViewStart=hmgISO(new Date(t.getFullYear(),t.getMonth(),1));
   }
   if(rerender)renderHmg();
 }
 function hmgNav(dir){
   if(hmgZoom==='all')return;
   if(!hmgViewStart)hmgToday(false);
-  const d=new Date(hmgViewStart);
+  const d=new Date(hmgViewStart+'T12:00:00');
+  d.setDate(1);
   d.setMonth(d.getMonth()+dir*(hmgZoom==='quarter'?3:1));
-  hmgViewStart=d.toISOString().slice(0,10);
+  hmgViewStart=hmgISO(d);
   renderHmg();
 }
 
@@ -5170,11 +5174,12 @@ function renderHmg(){
     if(periodEl)periodEl.textContent='Celé obdobie';
   }else{
     if(!hmgViewStart)hmgToday(false);
-    const vs=new Date(hmgViewStart);
+    const vs=new Date(hmgViewStart+'T12:00:00');
+    vs.setDate(1);
     const months=hmgZoom==='quarter'?3:1;
     const ve=new Date(vs.getFullYear(),vs.getMonth()+months,0); // posledný deň
-    minD=vs.toISOString().slice(0,10);
-    maxD=ve.toISOString().slice(0,10);
+    minD=hmgISO(vs);
+    maxD=hmgISO(ve);
     if(periodEl){
       periodEl.textContent=hmgZoom==='quarter'
         ? `${vs.toLocaleDateString('sk',{month:'short'})} – ${ve.toLocaleDateString('sk',{month:'short',year:'numeric'})}`
@@ -5207,9 +5212,9 @@ function renderHmg(){
         return `<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:${HMG_COLORS[e]||'#888'};display:inline-block;${koop?'opacity:0.5':''}"></span>${e}${koop?' (koop.)':''}</span>`;
       }).join('')+
       `<span style="margin-left:auto;display:inline-flex;align-items:center;gap:10px">
-        <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:24px;height:6px;border-radius:2px;background:var(--bg4,#555);display:inline-block"></span>Prípravné</span>
-        <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:24px;height:8px;border-radius:2px;background:var(--bg3);border:1px solid var(--border2);display:inline-block"></span>Plán</span>
-        <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:24px;height:12px;border-radius:2px;background:var(--acc);display:inline-block"></span>Realita</span>
+        <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:24px;height:6px;border-radius:2px;background:var(--text3);opacity:0.45;display:inline-block"></span>Prípravné (nástrel)</span>
+        <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:24px;height:8px;border-radius:2px;background:var(--acc);opacity:0.32;display:inline-block"></span>Plán (nástrel)</span>
+        <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:24px;height:13px;border-radius:3px;background:var(--acc);box-shadow:0 1px 3px rgba(0,0,0,0.4);display:inline-block"></span><b style="color:var(--text2)">Realita</b></span>
       </span>`;
   }
 
@@ -5217,9 +5222,9 @@ function renderHmg(){
   let marksLabels='',marksGrid='';
   if(hmgZoom==='month'){
     // denné značky
-    let d=new Date(minD);
-    while(d.getTime()<=endMs){
-      const ds=d.toISOString().slice(0,10);
+    let d=new Date(minD+'T12:00:00');
+    while(d.getTime()<=endMs+43200000){
+      const ds=hmgISO(d);
       const x=dayX(ds);
       const wd=d.getDay();
       const wknd=wd===0||wd===6;
@@ -5229,19 +5234,19 @@ function renderHmg(){
     }
   }else if(hmgZoom==='quarter'){
     // týždňové značky (pondelky)
-    let d=new Date(minD);
+    let d=new Date(minD+'T12:00:00');
     while(d.getDay()!==1)d.setDate(d.getDate()+1);
-    while(d.getTime()<=endMs){
-      const ds=d.toISOString().slice(0,10);
+    while(d.getTime()<=endMs+43200000){
+      const ds=hmgISO(d);
       marksGrid+=`<div style="position:absolute;left:${dayX(ds)}px;top:0;bottom:0;border-left:1px solid var(--border)"></div>`;
       marksLabels+=`<div style="position:absolute;left:${dayX(ds)+2}px;top:0;font-size:9px;color:var(--text3);white-space:nowrap">${d.getDate()}.${d.getMonth()+1}.</div>`;
       d.setDate(d.getDate()+7);
     }
   }else{
     // mesačné značky
-    let d=new Date(minD);d.setDate(1);
-    while(d.getTime()<=endMs){
-      const x=Math.max(0,dayX(d.toISOString().slice(0,10)));
+    let d=new Date(minD+'T12:00:00');d.setDate(1);
+    while(d.getTime()<=endMs+43200000){
+      const x=Math.max(0,dayX(hmgISO(d)));
       marksGrid+=`<div style="position:absolute;left:${x}px;top:0;bottom:0;border-left:1px solid var(--border)"></div>`;
       marksLabels+=`<div style="position:absolute;left:${x+3}px;top:0;font-size:9px;color:var(--text3);white-space:nowrap">${d.toLocaleDateString('sk',{month:'short',year:'2-digit'})}</div>`;
       d.setMonth(d.getMonth()+1);
@@ -5274,7 +5279,7 @@ function renderHmg(){
     // Prípravné/doplnkové etapy — najtenší horný pruh
     vzTop.forEach(r=>{
       const od=clampOd(r.od),doo=clampDo(r.do);
-      html+=`<div title="PRÍPRAVA ${r.etapa}: ${fmtDate(r.od)} – ${fmtDate(r.do)}" style="position:absolute;top:4px;height:11px;left:${dayX(od)}px;width:${barW(od,doo)}px;background:${HMG_TOP_COLORS[r.etapa]||'#888'};border-radius:2px;display:flex;align-items:center;overflow:hidden">
+      html+=`<div title="PRÍPRAVA ${r.etapa}: ${fmtDate(r.od)} – ${fmtDate(r.do)}" style="position:absolute;top:4px;height:11px;left:${dayX(od)}px;width:${barW(od,doo)}px;background:${HMG_TOP_COLORS[r.etapa]||'#888'};opacity:0.45;border-radius:2px;display:flex;align-items:center;overflow:hidden">
         ${barW(od,doo)>28?`<span style="font-size:7.5px;color:#fff;font-weight:700;padding-left:2px;white-space:nowrap">${r.etapa}</span>`:''}
       </div>`;
     });
@@ -5283,7 +5288,7 @@ function renderHmg(){
     vzMain.forEach(r=>{
       const koop=HMG_KOOP.includes(r.etapa);
       const od=clampOd(r.od),doo=clampDo(r.do);
-      html+=`<div title="PLÁN ${r.etapa}: ${fmtDate(r.od)} – ${fmtDate(r.do)}" style="position:absolute;top:20px;height:20px;left:${dayX(od)}px;width:${barW(od,doo)}px;background:${HMG_COLORS[r.etapa]||'#888'};opacity:${koop?0.35:0.6};border-radius:3px;display:flex;align-items:center;overflow:hidden">
+      html+=`<div title="PLÁN ${r.etapa}: ${fmtDate(r.od)} – ${fmtDate(r.do)}" style="position:absolute;top:20px;height:20px;left:${dayX(od)}px;width:${barW(od,doo)}px;background:${HMG_COLORS[r.etapa]||'#888'};opacity:${koop?0.2:0.32};border-radius:3px;display:flex;align-items:center;overflow:hidden">
         ${barW(od,doo)>34?`<span style="font-size:9px;color:#fff;font-weight:700;padding-left:3px;white-space:nowrap">${r.etapa}</span>`:''}
       </div>`;
     });
@@ -5292,8 +5297,8 @@ function renderHmg(){
     realVis.forEach(([etapa,r])=>{
       const allDone=r.total>0&&r.done===r.total;
       const od=clampOd(r.od),doo=clampDo(r.do);
-      html+=`<div title="REALITA ${etapa}: ${fmtDate(r.od)} – ${fmtDate(r.do)} · ${r.done}/${r.total} splnených" style="position:absolute;top:46px;height:20px;left:${dayX(od)}px;width:${barW(od,doo)}px;background:${HMG_COLORS[etapa]||HMG_TOP_COLORS[etapa]||'var(--acc)'};border-radius:3px;display:flex;align-items:center;overflow:hidden;${allDone?'outline:1.5px solid var(--green);outline-offset:-1.5px':''}">
-        ${barW(od,doo)>34?`<span style="font-size:9px;color:#fff;font-weight:700;padding-left:3px;white-space:nowrap">${etapa} ${r.done}/${r.total}</span>`:''}
+      html+=`<div title="REALITA ${etapa}: ${fmtDate(r.od)} – ${fmtDate(r.do)} · ${r.done}/${r.total} splnených" style="position:absolute;top:44px;height:24px;left:${dayX(od)}px;width:${barW(od,doo)}px;background:${HMG_COLORS[etapa]||HMG_TOP_COLORS[etapa]||'var(--acc)'};border-radius:4px;display:flex;align-items:center;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.45);${allDone?'outline:2px solid var(--green);outline-offset:-2px':''}">
+        ${barW(od,doo)>34?`<span style="font-size:9.5px;color:#fff;font-weight:800;padding-left:4px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,0.5)">${etapa} ${r.done}/${r.total}</span>`:''}
       </div>`;
     });
 

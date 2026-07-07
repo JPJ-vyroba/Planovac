@@ -269,6 +269,7 @@ input[type=date],input[type=time]{color-scheme:dark}
   <div class="nav-item" id="nav-overview" onclick="nav('overview',this)" style="display:none"><span class="nav-icon">📊</span> Prehľad</div>
   <div class="nav-item" id="nav-remaining" onclick="nav('remaining',this)" style="display:none"><span class="nav-icon">⏳</span> Zostávajúce</div>
   <div class="nav-item" id="nav-kapacita" onclick="nav('kapacita',this);renderKapacita()" style="display:none"><span class="nav-icon">📈</span> Kapacita</div>
+  <div class="nav-item" id="nav-hmg" onclick="nav('hmg',this);renderHmg()"><span class="nav-icon">🗓</span> Harmonogram</div>
   <div class="nav-item" id="nav-material" onclick="nav('material',this);initMaterialPanel()" style="display:none"><span class="nav-icon">📦</span> Materiál</div>
   <div class="nav-item" id="nav-plan-log" onclick="nav('plan-log',this)" style="display:none"><span class="nav-icon">📋</span> Plán úloh</div>
   <div class="sidebar-bottom">
@@ -491,6 +492,7 @@ input[type=date],input[type=time]{color-scheme:dark}
 
     <!-- IMPORT -->
     <div class="tab-panel" id="panel-import">
+      <div id="orphan-docs-warning"></div>
       <div class="card">
         <div class="card-title">Import činností z Excelu</div>
         <div class="col-note">Stĺpce: <span>A</span>=Etapa &nbsp;<span>C</span>=ID kód &nbsp;<span>D</span>=Názov &nbsp;<span>E</span>=Popis &nbsp;<span>F</span>=Profesia &nbsp;<span>M</span>=Nh &nbsp;— Názov hárka = Vozeň &nbsp;— Nahrá všetky hárky naraz</div>
@@ -547,6 +549,22 @@ input[type=date],input[type=time]{color-scheme:dark}
         <input type="file" id="file-nsm" accept=".xlsx,.xls,.xlsm" style="display:none" onchange="handleFileNsm(this.files[0])">
         <div id="nsm-import-msg" style="margin-top:8px"></div>
         <div id="nsm-import-stats" style="margin-top:6px;font-size:12px;color:var(--text3)"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Import harmonogramu (referenčný plán)</div>
+        <div class="col-note">Excel s hárkom <span>Hmg_14Ev4</span> — riadky vozňov s "Plán ŽOS", etapy per deň. Nový import prepíše celý harmonogram.</div>
+        <div id="hmg-import-status" style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap"></div>
+        <div class="drop-zone" id="drop-hmg" onclick="document.getElementById('file-hmg').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="handleDropHmg(event)">
+          <div class="drop-icon">🗓</div>
+          <div class="drop-title">Pretiahni harmonogram sem alebo klikni</div>
+          <div class="drop-sub">harmonogram.xlsx — hárok Hmg_14Ev4</div>
+        </div>
+        <input type="file" id="file-hmg" accept=".xlsx,.xls,.xlsm" style="display:none" onchange="handleFileHmg(this.files[0])">
+        <div id="hmg-import-msg" style="margin-top:8px"></div>
       </div>
 
       <div class="card">
@@ -695,6 +713,31 @@ input[type=date],input[type=time]{color-scheme:dark}
   </div>
 </div>
 
+<!-- PANEL: Harmonogram (referenčný plán vs. realita) -->
+<div class="ext-panel" id="panel-hmg" style="padding:1.5rem">
+  <div class="card">
+    <div class="section-head">
+      <h3>Harmonogram — plán vs. realita</h3>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div id="hmg-vp-pills" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+        <div style="width:1px;height:20px;background:var(--border)"></div>
+        <button class="btn btn-outline btn-sm" style="padding:4px 9px" onclick="hmgNav(-1)" title="Predošlé obdobie">◀</button>
+        <div id="hmg-zoom-pills" style="display:flex;gap:3px">
+          <button class="fpill" id="hmg-zoom-month" onclick="hmgSetZoom('month')">Mesiac</button>
+          <button class="fpill" id="hmg-zoom-quarter" onclick="hmgSetZoom('quarter')">Štvrťrok</button>
+          <button class="fpill" id="hmg-zoom-all" onclick="hmgSetZoom('all')">Celý</button>
+        </div>
+        <button class="btn btn-outline btn-sm" style="padding:4px 9px" onclick="hmgNav(1)" title="Ďalšie obdobie">▶</button>
+        <button class="btn btn-outline btn-sm" style="padding:4px 9px" onclick="hmgToday()" title="Skočiť na dnešok">Dnes</button>
+        <div id="hmg-period-label" style="font-size:12px;font-weight:700;color:var(--text2);min-width:110px"></div>
+        <div id="hmg-status" style="font-size:11px;color:var(--text3)"></div>
+      </div>
+    </div>
+    <div id="hmg-legend" style="display:flex;gap:14px;align-items:center;margin-bottom:12px;flex-wrap:wrap;font-size:11px;color:var(--text3)"></div>
+    <div id="hmg-content" style="overflow-x:auto"></div>
+  </div>
+</div>
+
 </div>
 </div>
 
@@ -704,7 +747,7 @@ input[type=date],input[type=time]{color-scheme:dark}
 // ═══════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════
-const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'THP pracovníci',overview:'Prehľad',remaining:'Zostávajúce',auditlog:'Audit log','plan-log':'Plán úloh',kapacita:'Kapacita',material:'Materiál'};
+const PAGES={plan:'Plánovanie',gantt:'Gantt diagram',cinnosti:'Činnosti',workers:'Pracovníci',import:'Import XLSX',masters:'THP pracovníci',overview:'Prehľad',remaining:'Zostávajúce',auditlog:'Audit log','plan-log':'Plán úloh',kapacita:'Kapacita',material:'Materiál',hmg:'Harmonogram'};
 let jobFilter='all';
 let activeProfFilter='';
 let _assignParams=null;
@@ -838,20 +881,28 @@ async function fbLoad(){
     if(masters.exists) S.masters=masters.data().masters||[];
     if(workers.exists){const w=workers.data();S.workers=w.workers||[];S.nextWorkerId=w.nextWorkerId||1;}
 
-    // Jobs z vp_ dokumentov (už načítané v allDocs)
-    S.jobs=[];S.nextJobId=1;
-    const cinVpKeys=[];
+    // Pozbieraj vp_ a cin_ dokumenty — spracujú sa po načítaní meta (kvôli filtru podľa vpList)
+    const vpDocs={},cinDocs={};
     allDocs.forEach(doc=>{
-      if(doc.id.startsWith('vp_')){
-        const d=doc.data();
-        if(d.jobs){S.jobs=S.jobs.concat(d.jobs);d.jobs.forEach(j=>{if(j.id>=S.nextJobId)S.nextJobId=j.id+1;});}
-      }
-      if(doc.id.startsWith('cin_')) cinVpKeys.push(doc.id);
+      if(doc.id.startsWith('vp_'))vpDocs[doc.id.slice(3)]=doc.data();
+      if(doc.id.startsWith('cin_'))cinDocs[doc.id.slice(4)]=doc.data();
     });
 
     if(meta.exists){
       const m=meta.data();
       S.vpList=m.vpList||[];S.cinAssignments=m.cinAssignments||{};S.nextCinId=m.nextCinId||1;
+
+      // Platný kľúč = '_' (bez VP) alebo je v aktuálnom vpList; ak je vpList prázdny, ber všetko (stará DB)
+      const validKey=k=>!S.vpList.length||k==='_'||S.vpList.includes(k);
+      const orphans=[];
+
+      // Jobs — len z platných vp_ dokumentov
+      S.jobs=[];S.nextJobId=1;
+      Object.entries(vpDocs).forEach(([k,d])=>{
+        if(!validKey(k)){orphans.push('vp_'+k);return;}
+        if(d.jobs){S.jobs=S.jobs.concat(d.jobs);d.jobs.forEach(j=>{if(j.id>=S.nextJobId)S.nextJobId=j.id+1;});}
+      });
+
       // NSM z nsm_ dokumentov
       S.nsm=[];
       allDocs.forEach(doc=>{
@@ -860,15 +911,22 @@ async function fbLoad(){
           if(d.items)S.nsm=S.nsm.concat(d.items);
         }
       });
+      // Harmonogram (referenčný plán)
+      S.hmg=null;
+      allDocs.forEach(doc=>{
+        if(doc.id==='harmonogram'){
+          const d=doc.data();
+          if(d.ranges)S.hmg={ranges:d.ranges,importedAt:d.importedAt||null,fileName:d.fileName||''};
+        }
+      });
       // Fallback: staré NSM priamo v meta
       if(!S.nsm.length&&m.nsm&&m.nsm.length)S.nsm=m.nsm;
-      // Cinnosti - už načítané v allDocs (cin_ dokumenty)
+
+      // Cinnosti — len z platných cin_ dokumentov
       S.cinnosti=[];
-      allDocs.forEach(doc=>{
-        if(doc.id.startsWith('cin_')){
-          const d=doc.data();
-          if(d.cins) S.cinnosti=S.cinnosti.concat(d.cins);
-        }
+      Object.entries(cinDocs).forEach(([k,d])=>{
+        if(!validKey(k)){orphans.push('cin_'+k);return;}
+        if(d.cins)S.cinnosti=S.cinnosti.concat(d.cins);
       });
       // Fallback: staré cinnosti priamo v meta
       if(!S.cinnosti.length&&m.cinnosti&&m.cinnosti.length) S.cinnosti=m.cinnosti;
@@ -876,6 +934,34 @@ async function fbLoad(){
       if(!S.vpList.length&&S.cinnosti.length){
         const vpSet=new Set(S.cinnosti.map(c=>c.vp).filter(Boolean));
         S.vpList=[...vpSet].sort();
+      }
+
+      // Cleanup — vymaž sirotské dokumenty (po premenovaní / vymazaní súpravy)
+      // Poistka: automaticky sa mažú LEN dokumenty ktorých obsah je duplikát/prázdny.
+      // Dokumenty s unikátnymi dátami sa nenačítajú, ale čakajú na rozhodnutie admina.
+      S._orphans=[];
+      if(S.vpList.length&&orphans.length){
+        const loadedJobIds=new Set(S.jobs.map(j=>j.id));
+        const loadedCinIds=new Set(S.cinnosti.map(c=>c.id));
+        orphans.forEach(id=>{
+          let uniqueCount=0,kind='';
+          if(id.startsWith('vp_')){
+            const d=vpDocs[id.slice(3)]||{};
+            uniqueCount=(d.jobs||[]).filter(j=>!loadedJobIds.has(j.id)).length;
+            kind='úloh';
+          }else{
+            const d=cinDocs[id.slice(4)]||{};
+            uniqueCount=(d.cins||[]).filter(c=>!loadedCinIds.has(c.id)).length;
+            kind='činností';
+          }
+          if(uniqueCount===0){
+            db.collection('workplan').doc(id).delete().catch(()=>{});
+            console.log('FB cleanup: odstránený sirotský dokument '+id+' (duplikát/prázdny)');
+          }else{
+            S._orphans.push({id,uniqueCount,kind});
+            console.warn('FB cleanup: '+id+' obsahuje '+uniqueCount+' unikátnych '+kind+' — čaká na rozhodnutie admina (Import panel)');
+          }
+        });
       }
     }
 
@@ -981,6 +1067,13 @@ function canSeeProf(prof){
   if(!currentUser||isAdmin()||isManager())return true;
   if(!currentUser.profesie||!currentUser.profesie.length)return true;
   return currentUser.profesie.map(String).includes(String(prof));
+}
+
+// Profesie prihláseného majstra (null = nefiltrovať — admin/manažér/logista/bez profesií)
+function myMasterProfs(){
+  if(!currentUser||isAdmin()||isManager()||isLogista())return null;
+  if(!currentUser.profesie||!currentUser.profesie.length)return null;
+  return currentUser.profesie.map(String);
 }
 
 function applyRoleUI(){
@@ -1451,7 +1544,7 @@ function filterJobs(f,el){jobFilter=f;document.querySelectorAll('.fpill').forEac
 // ═══════════════════════════════════════════════════════════════════
 function renderStats(){
   // Pre majstra filtruj podľa jeho profesie
-  const myProfs=currentUser&&currentUser.professions?currentUser.professions:null;
+  const myProfs=myMasterProfs();
   const filterJob=j=>!myProfs||myProfs.length===0||myProfs.includes(String(j.prof));
   const filterWorker=w=>!myProfs||myProfs.length===0||myProfs.includes(String(w.prof));
 
@@ -1474,6 +1567,9 @@ function renderStats(){
 function renderJobs(){
   const el=document.getElementById('jobs-list');
   let jobs=[...S.jobs];
+  // Majster vidí len úlohy svojej profesie
+  const mp=myMasterProfs();
+  if(mp)jobs=jobs.filter(j=>mp.includes(String(j.prof)));
   if(activeVpFilter)jobs=jobs.filter(j=>!j.vp||j.vp===activeVpFilter);
   if(activeProfFilter)jobs=jobs.filter(j=>String(j.prof)===String(activeProfFilter));
   if(jobFilter=='active')jobs=jobs.filter(j=>!j.done);
@@ -1939,15 +2035,48 @@ function renderCinnosti(){
   el.innerHTML=html;
 }
 
+let workerSearch='';
 function renderWorkers(){
   const el=document.getElementById('workers-list');
-  document.getElementById('worker-count').textContent=`${S.workers.length} pracovníkov`;
-  if(!S.workers.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">◉</div>Žiadni pracovníci — importuj alebo pridaj manuálne</div>';return;}
+
+  // Majster vidí len pracovníkov svojej profesie
+  const myProfs=myMasterProfs();
+  let workers=S.workers.filter(w=>!myProfs||myProfs.includes(String(w.prof)));
+
+  document.getElementById('worker-count').textContent=`${workers.length} pracovníkov${myProfs?' ('+myProfs.join(', ')+')':''}`;
+
+  // Vyhľadávacie pole — vlož nad zoznam ak ešte neexistuje
+  let searchEl=document.getElementById('worker-search');
+  if(!searchEl){
+    const wrap=document.createElement('div');
+    wrap.style.cssText='margin-bottom:10px';
+    wrap.innerHTML=`<input type="text" id="worker-search" placeholder="🔍 Hľadať pracovníka..." style="width:100%;max-width:340px;padding:8px 12px;font-size:13px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text)" oninput="workerSearch=this.value;renderWorkersListOnly()">`;
+    el.parentNode.insertBefore(wrap,el);
+    searchEl=document.getElementById('worker-search');
+  }
+  searchEl.value=workerSearch;
+
+  renderWorkersListOnly();
+}
+
+function renderWorkersListOnly(){
+  const el=document.getElementById('workers-list');
+  const myProfs=myMasterProfs();
+  let workers=S.workers.filter(w=>!myProfs||myProfs.includes(String(w.prof)));
+
+  // Filtrovanie podľa vyhľadávania (bez diakritiky, case-insensitive)
+  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  if(workerSearch.trim()){
+    const q=norm(workerSearch);
+    workers=workers.filter(w=>norm(w.name).includes(q));
+  }
+
+  if(!workers.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">◉</div>'+(workerSearch?'Nikto nezodpovedá hľadaniu':'Žiadni pracovníci — importuj alebo pridaj manuálne')+'</div>';return;}
 
   const today=todayStr();
   const hoursOpts=[7.5,8,9,9.5,10,12];
 
-  el.innerHTML=S.workers.map(w=>{
+  el.innerHTML=workers.map(w=>{
     const bj=S.jobs.filter(j=>!j.done&&j.workerIds.includes(w.id));
     const days7=Array.from({length:7},(_,i)=>addDays(today,i));
     const DAY=['Ne','Po','Ut','St','Št','Pi','So'];
@@ -2263,6 +2392,11 @@ function renameVpPrompt(oldVp){
   S.cinnosti.forEach(c=>{if(c.vp===oldVp)c.vp=trimmed;});
   // Premenuj v joboch
   S.jobs.forEach(j=>{if(j.vp===oldVp)j.vp=trimmed;});
+  // Zmaž staré Firestore dokumenty (cin_oldVp, vp_oldVp) — inak by pri ďalšom načítaní ožili
+  if(db){
+    db.collection('workplan').doc('cin_'+oldVp).delete().catch(()=>{});
+    db.collection('workplan').doc('vp_'+oldVp).delete().catch(()=>{});
+  }
   saveNow();
   renderAll();
   logAction('Premenoval súpravu',`${oldVp} → ${trimmed}`);
@@ -2272,7 +2406,11 @@ function renameVpPrompt(oldVp){
 function renderProfFilterPills(){
   const el=document.getElementById('prof-filter-pills');
   if(!el)return;
-  const profs=[...new Set(S.jobs.map(j=>String(j.prof||'')).filter(Boolean))].sort();
+  const mp=myMasterProfs();
+  let profs=[...new Set(S.jobs.map(j=>String(j.prof||'')).filter(Boolean))].sort();
+  if(mp)profs=profs.filter(p=>mp.includes(p));
+  // Majster s jednou profesiou — pills netreba
+  if(mp&&profs.length<=1){el.innerHTML=profs.length?`<span style="font-size:11px;color:var(--text3)">${profs[0]}</span>`:'';return;}
   el.innerHTML=`<button class="fpill${activeProfFilter===''?' active':''}" onclick="activeProfFilter='';document.querySelectorAll('#prof-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderJobs()">Všetky</button>`+
     profs.map(p=>`<button class="fpill${activeProfFilter===p?' active':''}" onclick="activeProfFilter='${p}';document.querySelectorAll('#prof-filter-pills .fpill').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderJobs()" style="background:var(--bg3)">${p}</button>`).join('');
 }
@@ -2302,6 +2440,12 @@ function removeVp(vp){
   S.jobs=S.jobs.filter(j=>j.vp!==vp);
   S.vpList=S.vpList.filter(v=>v!==vp);
   if(activeVpFilter===vp)activeVpFilter=null;
+  // Zmaž Firestore dokumenty súpravy
+  if(db){
+    db.collection('workplan').doc('cin_'+vp).delete().catch(()=>{});
+    db.collection('workplan').doc('vp_'+vp).delete().catch(()=>{});
+  }
+  logAction('Odstránil súpravu',vp);
   saveNow();renderAll();
 }
 
@@ -2443,6 +2587,8 @@ function nav(tab,el){
   if(tab==='remaining')renderRemaining();
   if(tab==='plan-log')initPlanLogFilters();
   if(tab==='kapacita')renderKapacita();
+  if(tab==='hmg')renderHmg();
+  if(tab==='import')renderHmgImportStatus();
   if(tab==='auditlog')renderAuditLog();
 }
 function addWorker(){
@@ -3378,6 +3524,7 @@ function confirmAbsence(){
   if(!w.absencie)w.absencie=[];
   w.absencie.push({id:Date.now(),typ,od,do:doo,poznamka});
   w.absencie.sort((a,b)=>a.od.localeCompare(b.od));
+  logAction('Pridal absenciu',w.name+' · '+typ+' '+od+' – '+doo);
 
   const widInt=parseInt(w.id);
   const affectedJobs=S.jobs.filter(j=>{
@@ -3481,6 +3628,7 @@ function resolveCollision(action){
   const widInt=parseInt(w.id);
 
   if(action==='after'){
+    logAction('Kolízia — dorobí po absencii',w.name+' · '+j.cinName);
     // Dorobiť po dovolenke — presuň sloty na deň po dovolenke
     const afterDate=addDays(_collisionDo,1);
     // Vypočítaj koľko Nh treba dorobiť
@@ -3510,6 +3658,7 @@ function resolveCollision(action){
     }
     const newW=S.workers.find(x=>parseInt(x.id)===newWid);
     if(!newW)return;
+    logAction('Kolízia — náhradník',w.name+' → '+newW.name+' · '+j.cinName);
 
     // Koľko Nh treba prerozdeliť
     const remainingNh=(j.schedule||[])
@@ -3542,6 +3691,8 @@ function resolveCollision(action){
     j.pocet=j.workerIds.length;
     if(endDate>j.endDate||(endDate===j.endDate&&endH>j.endH)){j.endDate=endDate;j.endH=endH;}
     j.workdays=new Set(j.schedule.map(s=>s.date)).size;
+  } else if(action==='keep'){
+    logAction('Kolízia — ponechané bez zmeny',w.name+' · '+j.cinName);
   }
 
   saveNow();renderAll();
@@ -4748,6 +4899,411 @@ function renderKapacita(){
   </div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// HARMONOGRAM — referenčný plán vs. realita
+// ═══════════════════════════════════════════════════════════════════
+let hmgVpFilter='';
+
+// Farby etáp
+const HMG_COLORS={
+  'MS00':'#8B5CF6','MS01':'#3B82F6','MS02':'#0EA5E9','MS03':'#14B8A6',
+  'MS04':'#10B981','MS05':'#84CC16','MS06':'#EAB308',
+  'LAK':'#F59E0B','TK':'#EF4444',
+  'Colorspol':'#9CA3AF','Zvary':'#6B7280'
+};
+const HMG_KOOP=['Colorspol','Zvary']; // kooperácie — informatívne
+// Doplnkové etapy z horného riadku (Plán ŽOS) — whitelist, ostatné hodnoty sa ignorujú
+const HMG_TOP_ETAPY=['MEPR','SKU1','SKU2','VÁHA','Záväz','SPOJ','AC','DC','A','B','EX'];
+const HMG_TOP_COLORS={
+  'MEPR':'#EC4899','SKU1':'#A78BFA','SKU2':'#7C3AED','VÁHA':'#F97316',
+  'Záväz':'#EAB308','SPOJ':'#22D3EE','AC':'#34D399','DC':'#059669',
+  'A':'#60A5FA','B':'#2563EB','EX':'#F43F5E'
+};
+
+function excelSerialToDate(n){
+  // Excel serial → YYYY-MM-DD (1900 date system)
+  const ms=(n-25569)*86400*1000;
+  return new Date(ms).toISOString().slice(0,10);
+}
+
+function parseHmgWorkbook(wb){
+  // Nájdi hárok začínajúci Hmg
+  const sheetName=wb.SheetNames.find(n=>n.toLowerCase().startsWith('hmg'))||wb.SheetNames[0];
+  const ws=wb.Sheets[sheetName];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+
+  // Nájdi Filter riadok s dátumami
+  let dateRow=null;
+  for(let i=0;i<Math.min(rows.length,60);i++){
+    if(rows[i]&&rows[i][0]==='Filter'){dateRow=rows[i];break;}
+  }
+  if(!dateRow)throw new Error('Nenašiel sa riadok "Filter" s dátumami. Skontroluj formát súboru.');
+
+  // Dátumy od idx 4
+  const dates=[];
+  for(let ci=4;ci<dateRow.length;ci++){
+    const v=dateRow[ci];
+    if(typeof v==='number'&&v>40000&&v<60000)dates.push({ci,date:excelSerialToDate(v)});
+  }
+  if(!dates.length)throw new Error('Nenašli sa dátumy v riadku Filter.');
+
+  // Parsuj bloky: riadok [1]=vozeň + [2] obsahuje "Plán" → tento riadok = doplnkové etapy, nasledujúci = hlavné etapy
+  const VOZNE=['HV5','HV6','VV5','VV6'];
+  const ranges=[];
+  for(let i=0;i<rows.length-1;i++){
+    const r=rows[i];
+    if(!r)continue;
+    if(VOZNE.includes(r[1])&&r[2]&&String(r[2]).includes('Plán')){
+      const etRow=rows[i+1];
+      if(!etRow)continue;
+      const suprava=String(etRow[1]||'').trim(); // "1." až "6."
+      if(!/^\d\.$/.test(suprava))continue;
+      const vozen=r[1];
+
+      // Hlavné etapy (riadok i+1)
+      let curEtapa=null,curStart=null,prevDate=null;
+      for(const{ci,date}of dates){
+        let val=etRow[ci]!=null?String(etRow[ci]).trim():'';
+        if(val==='LAKO')val='LAK'; // preklep v zdroji
+        // markery štartu preskočiť
+        if(/^\d\.$/.test(val)||VOZNE.includes(val)||/^\d_(HV|VV)\d$/.test(val))val='';
+        if(val!==curEtapa){
+          if(curEtapa)ranges.push({vozen,suprava,etapa:curEtapa,od:curStart,do:prevDate});
+          curEtapa=val||null;
+          curStart=val?date:null;
+        }
+        prevDate=date;
+      }
+      if(curEtapa)ranges.push({vozen,suprava,etapa:curEtapa,od:curStart,do:prevDate});
+
+      // Doplnkové etapy (horný riadok i) — len whitelist, ostatné ignorovať
+      curEtapa=null;curStart=null;prevDate=null;
+      for(const{ci,date}of dates){
+        let val=r[ci]!=null?String(r[ci]).trim():'';
+        if(!HMG_TOP_ETAPY.includes(val))val='';
+        if(val!==curEtapa){
+          if(curEtapa)ranges.push({vozen,suprava,etapa:curEtapa,od:curStart,do:prevDate,top:true});
+          curEtapa=val||null;
+          curStart=val?date:null;
+        }
+        prevDate=date;
+      }
+      if(curEtapa)ranges.push({vozen,suprava,etapa:curEtapa,od:curStart,do:prevDate,top:true});
+    }
+  }
+  if(!ranges.length)throw new Error('Nenašli sa žiadne etapy. Skontroluj štruktúru súboru.');
+  return ranges;
+}
+
+async function handleFileHmg(file){
+  const msgEl=document.getElementById('hmg-import-msg');
+  if(!file)return;
+  msgEl.innerHTML='<div class="alert">⏳ Spracovávam harmonogram...</div>';
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ranges=parseHmgWorkbook(wb);
+    S.hmg={ranges,importedAt:Date.now(),fileName:file.name};
+    // Ulož do samostatného Firestore dokumentu
+    if(db)await db.collection('workplan').doc('harmonogram').set({ranges,importedAt:S.hmg.importedAt,fileName:file.name,ts:Date.now()});
+    logAction('Import harmonogramu',file.name+' · '+ranges.length+' rozsahov');
+    const etapy=[...new Set(ranges.map(x=>x.etapa))].sort();
+    msgEl.innerHTML=`<div class="alert alert-ok">✓ Harmonogram importovaný: <b>${ranges.length}</b> rozsahov, etapy: ${etapy.join(', ')}</div>`;
+    renderHmgImportStatus();
+  }catch(err){
+    msgEl.innerHTML='<div class="alert alert-err">Chyba: '+err.message+'</div>';
+  }
+  document.getElementById('file-hmg').value='';
+}
+function handleDropHmg(e){
+  e.preventDefault();
+  document.getElementById('drop-hmg').classList.remove('drag');
+  if(e.dataTransfer.files.length)handleFileHmg(e.dataTransfer.files[0]);
+}
+
+function renderHmgImportStatus(){
+  const el=document.getElementById('hmg-import-status');
+  if(!el)return;
+  if(S.hmg&&S.hmg.ranges&&S.hmg.ranges.length){
+    const dt=S.hmg.importedAt?new Date(S.hmg.importedAt).toLocaleDateString('sk'):'—';
+    el.innerHTML=`<span style="font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:600">✓ Nahraný: ${S.hmg.fileName||''} · ${S.hmg.ranges.length} rozsahov · ${dt}</span>`;
+  }else{
+    el.innerHTML='<span style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--bg3);color:var(--text3)">Harmonogram zatiaľ nie je nahraný</span>';
+  }
+  renderOrphanWarning();
+}
+
+function renderOrphanWarning(){
+  const el=document.getElementById('orphan-docs-warning');
+  if(!el)return;
+  if(!S._orphans||!S._orphans.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="card" style="border-color:var(--red);margin-bottom:16px">
+    <div class="card-title" style="color:var(--red)">⚠️ Dokumenty neexistujúcich súprav</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Vo Firestore sa našli dáta súprav, ktoré už neexistujú v zozname (po premenovaní/vymazaní), ale obsahujú unikátne záznamy. Skontroluj či o ne nestojíš — vymazanie je nevratné.</div>
+    ${S._orphans.map((o,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px">
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text)">${o.id}</span>
+        <span style="font-size:11px;color:var(--text3)">${o.uniqueCount} unikátnych ${o.kind}</span>
+        <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="deleteOrphanDoc(${i})">🗑 Vymazať natrvalo</button>
+      </div>`).join('')}
+  </div>`;
+}
+
+function deleteOrphanDoc(idx){
+  const o=S._orphans[idx];
+  if(!o)return;
+  if(!confirm(`Naozaj natrvalo vymazať ${o.id} (${o.uniqueCount} ${o.kind})?`))return;
+  if(db)db.collection('workplan').doc(o.id).delete().catch(()=>{});
+  logAction('Vymazal sirotský dokument',o.id+' · '+o.uniqueCount+' '+o.kind);
+  S._orphans.splice(idx,1);
+  renderOrphanWarning();
+}
+
+// Mapovanie harmonogram súprava ("1.") → appka VP názov
+function hmgSupravaToVp(sup){
+  const idx=parseInt(sup)-1;
+  return (S.vpList&&S.vpList[idx])?S.vpList[idx]:null;
+}
+
+// Realita: pre vozeň+VP zoskup joby podľa etapy → {etapa:{od,do,doneCount,totalCount}}
+function hmgRealityFor(vozen,vp){
+  const out={};
+  (S.jobs||[]).forEach(j=>{
+    if((j.zostava||'')!==vozen)return;
+    if((j.vp||'')!==vp)return;
+    const cin=S.cinnosti.find(c=>c.id==j.cinId);
+    const etapa=(cin&&cin.etapa)?String(cin.etapa).trim():'';
+    if(!etapa)return;
+    if(!out[etapa])out[etapa]={od:j.startDate,do:j.endDate,total:0,done:0};
+    if(j.startDate&&j.startDate<out[etapa].od)out[etapa].od=j.startDate;
+    if(j.endDate&&j.endDate>out[etapa].do)out[etapa].do=j.endDate;
+    out[etapa].total++;
+    if(j.done)out[etapa].done++;
+  });
+  return out;
+}
+
+// Zoom stav harmonogramu
+let hmgZoom='month';           // 'month' | 'quarter' | 'all'
+let hmgViewStart=null;         // YYYY-MM-DD — prvý deň zobrazeného výseku
+
+function hmgSetZoom(z){
+  hmgZoom=z;
+  if(!hmgViewStart)hmgToday(false);
+  renderHmg();
+}
+function hmgToday(rerender=true){
+  const t=new Date();
+  if(hmgZoom==='quarter'){
+    const qm=Math.floor(t.getMonth()/3)*3;
+    hmgViewStart=new Date(t.getFullYear(),qm,1).toISOString().slice(0,10);
+  }else{
+    hmgViewStart=new Date(t.getFullYear(),t.getMonth(),1).toISOString().slice(0,10);
+  }
+  if(rerender)renderHmg();
+}
+function hmgNav(dir){
+  if(hmgZoom==='all')return;
+  if(!hmgViewStart)hmgToday(false);
+  const d=new Date(hmgViewStart);
+  d.setMonth(d.getMonth()+dir*(hmgZoom==='quarter'?3:1));
+  hmgViewStart=d.toISOString().slice(0,10);
+  renderHmg();
+}
+
+function renderHmg(){
+  const content=document.getElementById('hmg-content');
+  const statusEl=document.getElementById('hmg-status');
+  const legendEl=document.getElementById('hmg-legend');
+  const pillsEl=document.getElementById('hmg-vp-pills');
+  const periodEl=document.getElementById('hmg-period-label');
+  if(!content)return;
+
+  // Zoom pills aktívny stav
+  ['month','quarter','all'].forEach(z=>{
+    const b=document.getElementById('hmg-zoom-'+z);
+    if(b)b.classList.toggle('active',hmgZoom===z);
+  });
+
+  if(!S.hmg||!S.hmg.ranges||!S.hmg.ranges.length){
+    content.innerHTML='<div class="empty-state"><div class="empty-icon">🗓</div>Harmonogram nie je nahraný.<br><span style="font-size:11px;color:var(--text3)">Admin ho môže importovať v paneli Import.</span></div>';
+    if(statusEl)statusEl.textContent='';
+    if(legendEl)legendEl.innerHTML='';
+    if(pillsEl)pillsEl.innerHTML='';
+    if(periodEl)periodEl.textContent='';
+    return;
+  }
+
+  // Súpravy dostupné v harmonograme
+  const supravy=[...new Set(S.hmg.ranges.map(r=>r.suprava))].sort();
+  if(!hmgVpFilter)hmgVpFilter=supravy[0];
+
+  if(pillsEl){
+    pillsEl.innerHTML=supravy.map(sup=>{
+      const vp=hmgSupravaToVp(sup);
+      const label=vp?`${sup} (${vp})`:sup;
+      return `<button class="fpill${hmgVpFilter===sup?' active':''}" onclick="hmgVpFilter='${sup}';renderHmg()">${label}</button>`;
+    }).join('');
+  }
+  if(statusEl){
+    const dt=S.hmg.importedAt?new Date(S.hmg.importedAt).toLocaleDateString('sk'):'';
+    statusEl.textContent=`Import: ${dt}`;
+  }
+
+  const vp=hmgSupravaToVp(hmgVpFilter);
+  const ranges=S.hmg.ranges.filter(r=>r.suprava===hmgVpFilter);
+  if(!ranges.length){content.innerHTML='<div class="empty-state">Žiadne dáta pre túto súpravu.</div>';if(periodEl)periodEl.textContent='';return;}
+
+  const VOZNE=['HV5','HV6','VV5','VV6'];
+  const realityByVozen={};
+  VOZNE.forEach(vz=>{realityByVozen[vz]=vp?hmgRealityFor(vz,vp):{};});
+
+  // ── Výsek podľa zoomu ──
+  let minD,maxD;
+  if(hmgZoom==='all'){
+    minD=ranges.reduce((m,r)=>r.od<m?r.od:m,ranges[0].od);
+    maxD=ranges.reduce((m,r)=>r.do>m?r.do:m,ranges[0].do);
+    VOZNE.forEach(vz=>Object.values(realityByVozen[vz]).forEach(r=>{
+      if(r.od&&r.od<minD)minD=r.od;
+      if(r.do&&r.do>maxD)maxD=r.do;
+    }));
+    if(periodEl)periodEl.textContent='Celé obdobie';
+  }else{
+    if(!hmgViewStart)hmgToday(false);
+    const vs=new Date(hmgViewStart);
+    const months=hmgZoom==='quarter'?3:1;
+    const ve=new Date(vs.getFullYear(),vs.getMonth()+months,0); // posledný deň
+    minD=vs.toISOString().slice(0,10);
+    maxD=ve.toISOString().slice(0,10);
+    if(periodEl){
+      periodEl.textContent=hmgZoom==='quarter'
+        ? `${vs.toLocaleDateString('sk',{month:'short'})} – ${ve.toLocaleDateString('sk',{month:'short',year:'numeric'})}`
+        : vs.toLocaleDateString('sk',{month:'long',year:'numeric'});
+    }
+  }
+
+  const startMs=new Date(minD).getTime();
+  const endMs=new Date(maxD).getTime();
+  const totalDays=Math.max(1,Math.round((endMs-startMs)/86400000)+1);
+  const availW=Math.max(700,(content.clientWidth||1100)-20);
+  const pxPerDay=hmgZoom==='all'?Math.max(2.2,Math.min(8,availW/totalDays)):(availW/totalDays);
+  const chartW=totalDays*pxPerDay;
+
+  const clampOd=d=>d<minD?minD:d;
+  const clampDo=d=>d>maxD?maxD:d;
+  const inView=(od,doo)=>doo>=minD&&od<=maxD;
+  const dayX=d=>((new Date(d).getTime()-startMs)/86400000)*pxPerDay;
+  const barW=(od,doo)=>Math.max(3,(((new Date(doo).getTime()-new Date(od).getTime())/86400000)+1)*pxPerDay-1);
+
+  // ── Legenda — len etapy viditeľné vo výseku ──
+  if(legendEl){
+    const visMain=[...new Set(ranges.filter(r=>!r.top&&inView(r.od,r.do)).map(r=>r.etapa))].sort();
+    const visTop=[...new Set(ranges.filter(r=>r.top&&inView(r.od,r.do)).map(r=>r.etapa))].sort((a,b)=>HMG_TOP_ETAPY.indexOf(a)-HMG_TOP_ETAPY.indexOf(b));
+    legendEl.innerHTML=
+      visTop.map(e=>`<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:8px;border-radius:2px;background:${HMG_TOP_COLORS[e]||'#888'};display:inline-block"></span>${e}</span>`).join('')+
+      (visTop.length&&visMain.length?'<span style="color:var(--border2)">|</span>':'')+
+      visMain.map(e=>{
+        const koop=HMG_KOOP.includes(e);
+        return `<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:${HMG_COLORS[e]||'#888'};display:inline-block;${koop?'opacity:0.5':''}"></span>${e}${koop?' (koop.)':''}</span>`;
+      }).join('')+
+      `<span style="margin-left:auto;display:inline-flex;align-items:center;gap:10px">
+        <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:24px;height:6px;border-radius:2px;background:var(--bg4,#555);display:inline-block"></span>Prípravné</span>
+        <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:24px;height:8px;border-radius:2px;background:var(--bg3);border:1px solid var(--border2);display:inline-block"></span>Plán</span>
+        <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:24px;height:12px;border-radius:2px;background:var(--acc);display:inline-block"></span>Realita</span>
+      </span>`;
+  }
+
+  // ── Časové značky ──
+  let marksLabels='',marksGrid='';
+  if(hmgZoom==='month'){
+    // denné značky
+    let d=new Date(minD);
+    while(d.getTime()<=endMs){
+      const ds=d.toISOString().slice(0,10);
+      const x=dayX(ds);
+      const wd=d.getDay();
+      const wknd=wd===0||wd===6;
+      marksGrid+=`<div style="position:absolute;left:${x}px;top:0;bottom:0;border-left:1px solid ${wknd?'var(--border2)':'var(--border)'};${wknd?'background:rgba(255,255,255,0.03);width:'+pxPerDay+'px':''}"></div>`;
+      marksLabels+=`<div style="position:absolute;left:${x+2}px;top:0;font-size:9px;color:${wknd?'var(--text3)':'var(--text2)'}">${d.getDate()}</div>`;
+      d.setDate(d.getDate()+1);
+    }
+  }else if(hmgZoom==='quarter'){
+    // týždňové značky (pondelky)
+    let d=new Date(minD);
+    while(d.getDay()!==1)d.setDate(d.getDate()+1);
+    while(d.getTime()<=endMs){
+      const ds=d.toISOString().slice(0,10);
+      marksGrid+=`<div style="position:absolute;left:${dayX(ds)}px;top:0;bottom:0;border-left:1px solid var(--border)"></div>`;
+      marksLabels+=`<div style="position:absolute;left:${dayX(ds)+2}px;top:0;font-size:9px;color:var(--text3);white-space:nowrap">${d.getDate()}.${d.getMonth()+1}.</div>`;
+      d.setDate(d.getDate()+7);
+    }
+  }else{
+    // mesačné značky
+    let d=new Date(minD);d.setDate(1);
+    while(d.getTime()<=endMs){
+      const x=Math.max(0,dayX(d.toISOString().slice(0,10)));
+      marksGrid+=`<div style="position:absolute;left:${x}px;top:0;bottom:0;border-left:1px solid var(--border)"></div>`;
+      marksLabels+=`<div style="position:absolute;left:${x+3}px;top:0;font-size:9px;color:var(--text3);white-space:nowrap">${d.toLocaleDateString('sk',{month:'short',year:'2-digit'})}</div>`;
+      d.setMonth(d.getMonth()+1);
+    }
+  }
+  // Dnešok
+  const today=todayStr();
+  let todayMark='';
+  if(today>=minD&&today<=maxD){
+    todayMark=`<div style="position:absolute;left:${dayX(today)}px;top:0;bottom:0;border-left:2px solid var(--red);z-index:5" title="Dnes"></div>`;
+  }
+
+  let html=`<div style="position:relative;width:${chartW}px;min-width:100%">`;
+  html+=`<div style="position:relative;height:16px">${marksLabels}</div>`;
+
+  const ROW_H=72;
+  VOZNE.forEach(vz=>{
+    const vzAll=ranges.filter(r=>r.vozen===vz);
+    const vzMain=vzAll.filter(r=>!r.top&&inView(r.od,r.do));
+    const vzTop=vzAll.filter(r=>r.top&&inView(r.od,r.do));
+    const reality=realityByVozen[vz]||{};
+    const realVis=Object.entries(reality).filter(([,r])=>inView(r.od,r.do));
+    if(!vzAll.length&&!Object.keys(reality).length)return;
+
+    html+=`<div style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:3px">${vz}${vp?` <span style="font-weight:400;color:var(--text3);font-size:10px">· ${vp}</span>`:''}</div>
+      <div style="position:relative;height:${ROW_H}px;background:var(--bg3);border-radius:6px;overflow:hidden">
+        ${marksGrid}${todayMark}`;
+
+    // Prípravné/doplnkové etapy — najtenší horný pruh
+    vzTop.forEach(r=>{
+      const od=clampOd(r.od),doo=clampDo(r.do);
+      html+=`<div title="PRÍPRAVA ${r.etapa}: ${fmtDate(r.od)} – ${fmtDate(r.do)}" style="position:absolute;top:4px;height:11px;left:${dayX(od)}px;width:${barW(od,doo)}px;background:${HMG_TOP_COLORS[r.etapa]||'#888'};border-radius:2px;display:flex;align-items:center;overflow:hidden">
+        ${barW(od,doo)>28?`<span style="font-size:7.5px;color:#fff;font-weight:700;padding-left:2px;white-space:nowrap">${r.etapa}</span>`:''}
+      </div>`;
+    });
+
+    // Plán — hlavné etapy, stredný pruh
+    vzMain.forEach(r=>{
+      const koop=HMG_KOOP.includes(r.etapa);
+      const od=clampOd(r.od),doo=clampDo(r.do);
+      html+=`<div title="PLÁN ${r.etapa}: ${fmtDate(r.od)} – ${fmtDate(r.do)}" style="position:absolute;top:20px;height:20px;left:${dayX(od)}px;width:${barW(od,doo)}px;background:${HMG_COLORS[r.etapa]||'#888'};opacity:${koop?0.35:0.6};border-radius:3px;display:flex;align-items:center;overflow:hidden">
+        ${barW(od,doo)>34?`<span style="font-size:9px;color:#fff;font-weight:700;padding-left:3px;white-space:nowrap">${r.etapa}</span>`:''}
+      </div>`;
+    });
+
+    // Realita — dolný sýty pruh
+    realVis.forEach(([etapa,r])=>{
+      const allDone=r.total>0&&r.done===r.total;
+      const od=clampOd(r.od),doo=clampDo(r.do);
+      html+=`<div title="REALITA ${etapa}: ${fmtDate(r.od)} – ${fmtDate(r.do)} · ${r.done}/${r.total} splnených" style="position:absolute;top:46px;height:20px;left:${dayX(od)}px;width:${barW(od,doo)}px;background:${HMG_COLORS[etapa]||HMG_TOP_COLORS[etapa]||'var(--acc)'};border-radius:3px;display:flex;align-items:center;overflow:hidden;${allDone?'outline:1.5px solid var(--green);outline-offset:-1.5px':''}">
+        ${barW(od,doo)>34?`<span style="font-size:9px;color:#fff;font-weight:700;padding-left:3px;white-space:nowrap">${etapa} ${r.done}/${r.total}</span>`:''}
+      </div>`;
+    });
+
+    html+=`</div></div>`;
+  });
+
+  html+='</div>';
+  content.innerHTML=html;
+}
+
 
 </script>
 
@@ -4860,6 +5416,44 @@ function renderKapacita(){
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-absence').style.display='none'">Zrušiť</button>
       <button class="btn btn-accent btn-sm" onclick="confirmAbsence()">Uložiť</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Kolízia absencie s naplánovanými úlohami -->
+<div id="modal-collision" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:250;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.5rem;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <span style="font-size:22px">⚠️</span>
+      <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text)">Kolízia s naplánovanou úlohou</div>
+    </div>
+    <div id="collision-progress" style="font-size:11px;color:var(--text3);margin-bottom:14px"></div>
+
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+      <div id="collision-job-name" style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:3px"></div>
+      <div id="collision-job-meta" style="font-size:12px;color:var(--text3)"></div>
+    </div>
+
+    <div id="collision-nh" style="font-size:13px;color:var(--text2);margin-bottom:14px"></div>
+
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">Ako vyriešiť túto úlohu?</div>
+
+      <div id="collision-replace-section" style="margin-bottom:10px"></div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-accent btn-sm" style="justify-content:flex-start;text-align:left" onclick="resolveCollision('replace')">
+          👤 Presunúť prácu na náhradníka (od začiatku absencie)
+        </button>
+        <button class="btn btn-outline btn-sm" style="justify-content:flex-start;text-align:left" onclick="resolveCollision('after')">
+          📅 Dorobiť po návrate — zvyšok sa preplánuje po absencii
+        </button>
+        <button class="btn btn-outline btn-sm" style="justify-content:flex-start;text-align:left" onclick="resolveCollision('keep')">
+          ✋ Nechať tak — vyriešim to sám neskôr
+        </button>
+      </div>
+    </div>
+
+    <div id="collision-msg"></div>
   </div>
 </div>
 

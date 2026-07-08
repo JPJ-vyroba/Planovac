@@ -4985,7 +4985,9 @@ function renderMaterial(){
     · <span style="color:var(--green)">${cntNew} nových</span>
     ${cntOrd?` · <span style="color:var(--text3)">${cntOrd} objednaných</span>`:''}
     ${cntMov?` · <span style="color:var(--acc)">${cntMov} posunutých</span>`:''}
-    &nbsp;<label style="font-size:11px;color:var(--text3);cursor:pointer"><input type="checkbox" ${matShowOrdered?'checked':''} onchange="matShowOrdered=this.checked;renderMaterial()" style="vertical-align:-2px"> zobraziť aj objednané</label>`;
+    &nbsp;&nbsp;<button onclick="matShowOrdered=!matShowOrdered;renderMaterial()" class="btn btn-sm ${matShowOrdered?'btn-accent':'btn-outline'}" style="font-size:11px;padding:4px 12px;font-weight:600">
+      ${matShowOrdered?'🙈 Skryť objednané':'👁 Zobraziť aj objednané ('+cntOrd+')'}
+    </button>`;
 
   tbl.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead>
